@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 discord = { git = "https://github.com/SpaceManiac/discord-rs" }
+dotenvy = "0.15.7"
