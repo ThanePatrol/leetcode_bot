@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     //         }
     //     }
     // }
-    init_webdriver();
+    //init_webdriver();
     println!("here");
     scrape_neetcode().await?;
 

@@ -1,6 +1,7 @@
 use std::process::Command;
 use thirtyfour::error::WebDriverResult;
 use thirtyfour::{By, DesiredCapabilities, WebDriver};
+use tokio::join;
 
 ///Everything in this file should be run in a installation that has chromedriver already installed
 /// This function simply scrapes neetcode, storing all the questions that are not premium into a sqlite DB
@@ -11,9 +12,12 @@ pub async fn scrape_neetcode() -> WebDriverResult<()> {
 
     driver.goto("https://neetcode.io/practice").await?;
 
+    //todo - change to list view before scraping all of them
+
     let table = driver.find(
         By::XPath("/html/body/app-root/app-pattern-table-list/div/div[2]/div[4]/app-table/div/table/tbody")
     ).await?;
+    join!();
     println!("here");
     for link in table.find_all(By::Tag("a")).await? {
         println!("{:?}", link);
@@ -34,8 +38,6 @@ pub fn init_webdriver() {
         .expect("Error reading token from .env");
 
     let output = Command::new(driver_path)
-
         .output()
         .expect("Failed to launch chromedriver");
-    println!("{:?}", output)
 }
