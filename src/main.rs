@@ -1,13 +1,21 @@
 mod scrapers;
+mod leetcode;
+mod db_api;
 
+use std::thread;
+use std::time::Duration;
 use discord::Discord;
 use discord::model::{Channel, ChannelId, Event, ServerId};
-use crate::scrapers::{init_webdriver, scrape_neetcode};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>>{
     let env_file = dotenvy::dotenv().expect("Could not read .env file");
     let bot_token = std::env::var("BOT_TOKEN").expect("Error reading token from .env");
+
+    let db_url = std::env::var("DATABASE_URL").expect("Error reading db url from .env");
+    let pool = db_api::init_db(&db_url).await?;
+
+
     //
     // let discord = Discord::from_bot_token(&bot_token)
     //     .expect("login failed");
@@ -32,10 +40,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     //         }
     //     }
     // }
-    //init_webdriver();
-    println!("here");
-    scrape_neetcode().await?;
+    let mut driver_process = scrapers::init_webdriver();
+    thread::sleep(Duration::from_millis(500));
+    let questions = scrapers::scrape_neetcode().await?;
+    println!("{:?}", questions);
 
+    driver_process.kill()?;
     Ok(())
 }
 
@@ -51,4 +61,17 @@ fn ping_with_daily(channel_id: u64, role_id: u64, link: &str, client: &Discord) 
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    //assumes chromedriver is already running and the total amount of neetcode questions is 434
+    #[tokio::test]
+    async fn test_all_questions_scraped_from_neetcode() {
+        let env_file = dotenvy::dotenv().expect("Could not read .env file");
+        let driver = scrapers::init_webdriver();
+        let questions = scrapers::scrape_neetcode().await.unwrap();
+        assert_eq!(questions.len(), 434);
+    }
+}
 

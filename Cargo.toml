@@ -11,4 +11,4 @@ tokio = { version = "1.28.2", features = ["full"] }
 discord = { git = "https://github.com/SpaceManiac/discord-rs" }
 dotenvy = "0.15.7"
 thirtyfour = "0.31.0"
-sqlx = { version = "0.6.3", features = ["runtime-tokio-rustls" ] }
+sqlx = { version = "0.6.3", features = ["runtime-tokio-rustls", "sqlite" ] }
