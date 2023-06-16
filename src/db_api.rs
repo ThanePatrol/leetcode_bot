@@ -1,5 +1,6 @@
 use sqlx::{Pool, Sqlite};
 use sqlx::sqlite::SqlitePoolOptions;
+use crate::leetcode::Leetcode;
 
 pub async fn init_db(db_url: &String) -> Result<Pool<Sqlite>, sqlx::Error> {
     let pool = SqlitePoolOptions::new()
@@ -9,7 +10,21 @@ pub async fn init_db(db_url: &String) -> Result<Pool<Sqlite>, sqlx::Error> {
     Ok(pool)
 }
 
+pub async fn add_leetcode_entries_to_db(
+    questions: Vec<Leetcode>,
+    pool: &Pool<Sqlite>,
+)
+    -> Result<(), sqlx::Error> {
 
-// pub async fn insert_leetcode_into_db() -> Result<(), sqlx::Error> {
-//
-// }
+    for question in questions {
+        sqlx::query (
+            "INSERT OR IGNORE INTO leetcode (problem_name, problem_link, have_done) \
+            VALUES (?, ?, ?);")
+            .bind(question.name)
+            .bind(question.url)
+            .bind(question.have_solved)
+            .execute(pool)
+            .await?;
+    }
+    Ok(())
+}

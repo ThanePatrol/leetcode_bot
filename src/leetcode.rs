@@ -1,8 +1,8 @@
 #[derive(Debug)]
 pub struct Leetcode {
-    name: String,
-    url: String,
-    have_solved: bool
+    pub name: String,
+    pub url: String,
+    pub have_solved: bool
 }
 
 impl Leetcode {

@@ -6,6 +6,7 @@ use std::thread;
 use std::time::Duration;
 use discord::Discord;
 use discord::model::{Channel, ChannelId, Event, ServerId};
+use tokio::join;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>>{
@@ -44,6 +45,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     thread::sleep(Duration::from_millis(500));
     let questions = scrapers::scrape_neetcode().await?;
     println!("{:?}", questions);
+    db_api::add_leetcode_entries_to_db(questions, &pool).await?;
+    join!();
 
     driver_process.kill()?;
     Ok(())
