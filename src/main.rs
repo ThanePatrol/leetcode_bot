@@ -43,11 +43,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     // }
     let mut driver_process = scrapers::init_webdriver();
     thread::sleep(Duration::from_millis(500));
-    let questions = scrapers::scrape_neetcode().await?;
-    println!("{:?}", questions);
-    db_api::add_leetcode_entries_to_db(questions, &pool).await?;
-    join!();
+    let questions = db_api::get_all_questions(&pool).await?;
+    // println!("{:?}", questions);
+    let qu = scrapers::get_problem_details(questions[0].clone()).await?;
 
+    println!("{:?}", qu);
+
+
+    join!();
     driver_process.kill()?;
     Ok(())
 }
