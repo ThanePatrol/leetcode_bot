@@ -1,3 +1,4 @@
+use std::any::{Any, TypeId};
 use crate::leetcode::Difficulty::{Easy, Hard, Medium};
 
 #[derive(Debug, Clone)]
@@ -23,6 +24,11 @@ impl Leetcode {
             have_solved: false,
         }
     }
+
+    pub fn serialize_categories(&self) -> String {
+        serde_json::ser::to_string(&self.categories)
+            .expect("Error serializing category")
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -33,11 +39,22 @@ pub enum Difficulty {
 }
 
 impl Difficulty {
+    /// used for creating a new enum or deserializing from db
     pub fn new(input: String) -> Self {
         match input.as_str() {
             "Easy" => Easy,
             "Medium" => Medium,
             _ => Hard,
         }
+    }
+
+    pub fn serialize_to_str(&self) -> String {
+        let str = match self {
+            Easy => "Easy",
+            Medium => "Medium",
+            Hard => "Hard"
+        };
+        serde_json::ser::to_string(str)
+            .expect("Error serializing enum to str")
     }
 }

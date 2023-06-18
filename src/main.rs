@@ -1,6 +1,7 @@
 mod scrapers;
 mod leetcode;
 mod db_api;
+mod utils;
 mod discord_api;
 
 use std::thread;
@@ -46,17 +47,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     thread::sleep(Duration::from_millis(500));
     let questions = db_api::get_all_questions(&pool).await?;
     // println!("{:?}", questions);
-    let qu = scrapers::get_problem_details(questions[0].clone()).await?;
+    let mut new_questions = Vec::new();
+    for question in questions {
+        let new_question = scrapers::get_problem_details(question).await?;
+        new_questions.push(new_question);
+    }
 
-    println!("{:?}", qu);
+    db_api::add_leetcode_entries_to_db(new_questions, &pool).await?;
 
-
+    println!("done :)");
     join!();
     driver_process.kill()?;
     Ok(())
 }
 
+fn ping_with_daily(channel_id: u64, role_id: u64, link: &str, client: &Discord) -> Result<(), Box<dyn std::error::Error>> {
+    let msg = format!("<@&{}> The daily question is {}", role_id, link);
+    client.send_message(
+        ChannelId(channel_id),
+        &*msg,
+        "",
+        false,
+    )?;
 
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {

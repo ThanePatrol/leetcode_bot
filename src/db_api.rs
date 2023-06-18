@@ -21,13 +21,18 @@ pub async fn add_leetcode_entries_to_db(
     -> Result<(), sqlx::Error> {
 
     for question in questions {
+        let difficulty = question.difficulty.serialize_to_str();
+        let problem_categories = question.serialize_categories();
+
         sqlx::query (
             "INSERT OR IGNORE INTO leetcode2 (problem_num, problem_name, problem_link, difficulty,\
              problem_categories, have_done) \
             VALUES (?, ?, ?, ?, ?, ?);")
+            .bind(question.number)
             .bind(question.name)
             .bind(question.url)
-            .bind(question.have_solved)
+            .bind(difficulty)
+            .bind(problem_categories)
             .execute(pool)
             .await?;
     }

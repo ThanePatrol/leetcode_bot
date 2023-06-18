@@ -2,7 +2,9 @@ use std::{process, thread};
 use std::process::Command;
 use std::time::Duration;
 use thirtyfour::error::WebDriverResult;
-use thirtyfour::{By, DesiredCapabilities, WebDriver};
+use thirtyfour::{By, DesiredCapabilities, WebDriver, WebElement};
+use thirtyfour::common::capabilities::firefox::LogLevel::Default;
+use thirtyfour::prelude::{ElementQueryable, ElementWaitable};
 use tokio::join;
 use crate::leetcode::{Difficulty, Leetcode};
 
@@ -29,11 +31,9 @@ pub async fn scrape_neetcode() -> WebDriverResult<Vec<Leetcode>> {
     list_view_link.click().await?;
 
 
-
     //there's 3 pages of questions, click through all of them,
     // not the most scalable solution but it works
     for _ in 0..3 {
-
         let table_of_questions = driver.find(
             By::XPath("/html/body/app-root/app-pattern-table-list/div/div[2]/div[4]/app-table/div/table/tbody")
         ).await?;
@@ -60,7 +60,6 @@ pub async fn scrape_neetcode() -> WebDriverResult<Vec<Leetcode>> {
             By::XPath("/html/body/app-root/app-pattern-table-list/div/div[2]/div[4]/app-table/div/div/button[2]")
         ).await?;
         next_page.click().await?;
-
     }
 
 
@@ -90,12 +89,14 @@ pub async fn get_problem_details(mut question: Leetcode) -> WebDriverResult<Leet
 
     let url = question.url.clone();
     driver.goto(url).await?;
-    thread::sleep(Duration::from_millis(1000));
+    thread::sleep(Duration::from_millis(2000));
 
+    // /html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[1]/div/div[2]/div[1]
     let difficulty_div = driver.find(By::XPath(
         "/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[1]/div/div[2]/div[1]"
     ))
         .await?;
+    difficulty_div.wait_until().displayed().await?;
 
     question.difficulty = Difficulty::new(difficulty_div.text().await?);
 
@@ -104,6 +105,7 @@ pub async fn get_problem_details(mut question: Leetcode) -> WebDriverResult<Leet
         "/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[1]/div/div[1]/div[1]/div/span"
     ))
         .await?;
+    problem_span.wait_until().displayed().await?;
 
     // get the span string, collect all the digits into a string then parse into number
     let problem_number = problem_span
@@ -117,22 +119,37 @@ pub async fn get_problem_details(mut question: Leetcode) -> WebDriverResult<Leet
 
     question.number = problem_number;
 
+
+    //
+    // let tpcs = driver.query(By::Tag("a"))
+    //     .with_attribute("href", "")
+    //     .all()
+    //     .await?;
+    // for t in tpcs {
+    //     println!("{:?}", t.inner_html().await?);
+    // }
+
+    //todo - where I got up to - it seems the xpath is working, just need to see if scrape worked when I come back in the morning
+    ///html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[7]
+    // get all topics, if not found, save a default vec
+    ///html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[7]/div/div[2]/div
+    let topic_div = driver.find(By::XPath(
+        "//*[@id='qd-content']/div[1]/div/div/div/div[2]/div/div/div[last() - 1]/div/div[2]/div"
+        //"/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[last()]/div/div[2]/div"
+    ))
+        .await
+        .expect(&*format!("Error finding topics for {}", question.url));
+
     thread::sleep(Duration::from_millis(2000));
 
-
-    // get all topics
-    let topic_div = driver.find(By::XPath(
-        "/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[7]/div/div[2]/div"
-    ))
-        .await?;
-
-
     let mut topics = Vec::new();
+
+
+
     for topic in topic_div.find_all(By::Tag("a")).await? {
         topics.push(topic.inner_html().await?);
     }
 
     question.categories = topics;
-
     Ok(question)
 }

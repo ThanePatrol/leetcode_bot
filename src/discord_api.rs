@@ -18,6 +18,9 @@ impl QuestionQueue {
     pub fn new() -> Self {
         let path = std::env::var("QUESTION_QUEUE")
             .expect("Error queue from .env");
+        QuestionQueue {
+            queue: Default::default(),
+        }
 
     }
 
