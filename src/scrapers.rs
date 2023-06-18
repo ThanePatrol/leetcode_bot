@@ -95,16 +95,20 @@ pub async fn get_problem_details(mut question: Leetcode) -> WebDriverResult<Leet
     let difficulty_div = driver.find(By::XPath(
         "/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[1]/div/div[2]/div[1]"
     ))
-        .await?;
+        .await
+        .expect(&*format!("Error reading difficulty from {}", question.url));
     difficulty_div.wait_until().displayed().await?;
 
     question.difficulty = Difficulty::new(difficulty_div.text().await?);
+
+    //todo - problem num/difficulty cannot be read, we have found a premium problem
 
     // the span contains the number followed by a period then the problem name
     let problem_span = driver.find(By::XPath(
         "/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[1]/div/div[1]/div[1]/div/span"
     ))
-        .await?;
+        .await
+        .expect(&*format!("Error reading problem number from {}", question.url));
     problem_span.wait_until().displayed().await?;
 
     // get the span string, collect all the digits into a string then parse into number
