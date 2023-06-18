@@ -1,6 +1,7 @@
 mod scrapers;
 mod leetcode;
 mod db_api;
+mod discord_api;
 
 use std::thread;
 use std::time::Duration;
@@ -55,17 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     Ok(())
 }
 
-fn ping_with_daily(channel_id: u64, role_id: u64, link: &str, client: &Discord) -> Result<(), Box<dyn std::error::Error>> {
-    let msg = format!("<@&{}> The daily question is {}", role_id, link);
-    client.send_message(
-        ChannelId(channel_id),
-        &*msg,
-        "",
-        false,
-    )?;
 
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {
