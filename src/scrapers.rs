@@ -91,69 +91,60 @@ pub async fn get_problem_details(mut question: Leetcode) -> WebDriverResult<Leet
     driver.goto(url).await?;
     thread::sleep(Duration::from_millis(2000));
 
-    // /html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[1]/div/div[2]/div[1]
-    let difficulty_div = driver.find(By::XPath(
+    // if we can't read question difficulty then it's a premium problem
+    if let Ok(difficulty_div) = driver.find(By::XPath(
         "/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[1]/div/div[2]/div[1]"
-    ))
-        .await
-        .expect(&*format!("Error reading difficulty from {}", question.url));
-    difficulty_div.wait_until().displayed().await?;
+    )).await {
+        difficulty_div.wait_until().displayed().await?;
 
-    question.difficulty = Difficulty::new(difficulty_div.text().await?);
+        question.difficulty = Difficulty::new(difficulty_div.text().await?);
 
-    //todo - problem num/difficulty cannot be read, we have found a premium problem
+        // the span contains the number followed by a period then the problem name
+        let problem_span = driver.find(By::XPath(
+            "/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[1]/div/div[1]/div[1]/div/span"
+        ))
+            .await
+            .expect(&*format!("Error reading problem number from {}", question.url));
+        problem_span.wait_until().displayed().await?;
 
-    // the span contains the number followed by a period then the problem name
-    let problem_span = driver.find(By::XPath(
-        "/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[1]/div/div[1]/div[1]/div/span"
-    ))
-        .await
-        .expect(&*format!("Error reading problem number from {}", question.url));
-    problem_span.wait_until().displayed().await?;
+        // get the span string, collect all the digits into a string then parse into number
+        let problem_number = problem_span
+            .text()
+            .await?
+            .chars()
+            .take_while(|&ch| ch.is_numeric())
+            .collect::<String>()
+            .parse::<u32>()
+            .expect("Error parsing question number");
 
-    // get the span string, collect all the digits into a string then parse into number
-    let problem_number = problem_span
-        .text()
-        .await?
-        .chars()
-        .take_while(|&ch| ch.is_numeric())
-        .collect::<String>()
-        .parse::<u32>()
-        .expect("Error parsing question number");
-
-    question.number = problem_number;
-
-
-    //
-    // let tpcs = driver.query(By::Tag("a"))
-    //     .with_attribute("href", "")
-    //     .all()
-    //     .await?;
-    // for t in tpcs {
-    //     println!("{:?}", t.inner_html().await?);
-    // }
-
-    //todo - where I got up to - it seems the xpath is working, just need to see if scrape worked when I come back in the morning
-    ///html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[7]
-    // get all topics, if not found, save a default vec
-    ///html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[7]/div/div[2]/div
-    let topic_div = driver.find(By::XPath(
-        "//*[@id='qd-content']/div[1]/div/div/div/div[2]/div/div/div[last() - 1]/div/div[2]/div"
-        //"/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[last()]/div/div[2]/div"
-    ))
-        .await
-        .expect(&*format!("Error finding topics for {}", question.url));
-
-    thread::sleep(Duration::from_millis(2000));
-
-    let mut topics = Vec::new();
+        question.number = problem_number;
 
 
 
-    for topic in topic_div.find_all(By::Tag("a")).await? {
-        topics.push(topic.inner_html().await?);
+        // get all topics
+        let topic_div = driver.find(By::XPath(
+            "//*[@id='qd-content']/div[1]/div/div/div/div[2]/div/div/div[last() - 1]/div/div[2]/div"
+            //"/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[last()]/div/div[2]/div"
+        ))
+            .await
+            .expect(&*format!("Error finding topics for {}", question.url));
+
+        thread::sleep(Duration::from_millis(2000));
+
+        let mut topics = Vec::new();
+
+
+
+        for topic in topic_div.find_all(By::Tag("a")).await? {
+            topics.push(topic.inner_html().await?);
+        }
+
+        question.categories = topics;
+        Ok(question)
+    } else {
+        question.categories = vec!["premium_questions".to_string()];
+        Ok(question)
     }
 
-    question.categories = topics;
-    Ok(question)
+
 }
