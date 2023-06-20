@@ -66,3 +66,9 @@ pub async fn get_all_questions(pool: &Pool<Sqlite>) -> Result<Vec<Leetcode>, sql
     Ok(questions)
 }
 
+/// Assumes the question parameter is a url in the form https://leetcode.com
+pub async fn get_question_from_url(question: &String, pool: &Pool<Sqlite>) -> Result<Leetcode, sqlx::Error> {
+    let row = sqlx::query("select * from leetcode where problem_link == ?")
+        .bind(question)
+}
+

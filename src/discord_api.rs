@@ -30,8 +30,9 @@ impl QuestionQueue {
     }
 
     //todo - take discord command and push a question to the back of a queue
-    pub fn push_to_back() {
-
+    pub fn push_to_back(&mut self, problem_url: &String) -> Result<(), sqlx::Error>{
+        let question =
+        self.queue.push_back()
     }
 
     //todo - serialize struct back again
