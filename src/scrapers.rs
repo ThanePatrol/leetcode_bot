@@ -2,15 +2,13 @@ use std::{process, thread};
 use std::process::Command;
 use std::time::Duration;
 use thirtyfour::error::WebDriverResult;
-use thirtyfour::{By, DesiredCapabilities, WebDriver, WebElement};
-use thirtyfour::common::capabilities::firefox::LogLevel::Default;
-use thirtyfour::prelude::{ElementQueryable, ElementWaitable};
-use tokio::join;
+use thirtyfour::{By, DesiredCapabilities, WebDriver};
+use thirtyfour::prelude::{ElementWaitable};
 use crate::leetcode::{Difficulty, Leetcode};
 
 
-///Everything in this file should be run in a installation that has chromedriver already installed
-/// This function simply scrapes neetcode, storing all the questions that are not premium into a sqlite DB
+/// Everything in this file should be run in a installation that has chromedriver already installed
+/// This function simply scrapes neetcode, storing all the questions into a sqlite DB
 pub async fn scrape_neetcode() -> WebDriverResult<Vec<Leetcode>> {
     let mut questions = Vec::new();
 

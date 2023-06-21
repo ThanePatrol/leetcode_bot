@@ -13,3 +13,4 @@ dotenvy = "0.15.7"
 thirtyfour = "0.31.0"
 sqlx = { version = "0.6.3", features = ["runtime-tokio-rustls", "sqlite" ] }
 serde_json = "1.0"
+rand = "0.8.1"

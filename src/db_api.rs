@@ -1,3 +1,4 @@
+use rand::Rng;
 use sqlx::{Pool, Row, Sqlite};
 use sqlx::sqlite::SqlitePoolOptions;
 use crate::leetcode::Leetcode;
@@ -10,11 +11,77 @@ pub async fn init_db(db_url: &String) -> Result<Pool<Sqlite>, sqlx::Error> {
     Ok(pool)
 }
 
-//todo - where i got up to
-// adding the updated leetcode entries into the db
-// need to serialize the question categories
-// also should change table names once done
-pub async fn add_leetcode_entries_to_db(
+
+
+pub async fn get_all_questions(pool: &Pool<Sqlite>) -> Result<Vec<Leetcode>, sqlx::Error> {
+    let rows = sqlx::query(
+        "SELECT * FROM leetcode;"
+    )
+        .fetch_all(pool)
+        .await?;
+
+    let mut questions = Vec::new();
+    for row in rows {
+        let question = Leetcode::new(row.get::<String, _>(1), row.get::<String, _>(2));
+        questions.push(question);
+    }
+    Ok(questions)
+}
+
+/// Assumes the question parameter is a url in the form https://leetcode.com/problems/two-sum/
+pub async fn get_question_from_url(question: &String, pool: &Pool<Sqlite>) -> Result<Leetcode, sqlx::Error> {
+    let row = sqlx::query("select * from leetcode where problem_link == ?")
+        .bind(question)
+        .fetch_one(pool)
+        .await?;
+
+    Ok(Leetcode::new_from_row(row))
+}
+
+
+/// Retries a random question from the database that is not marked as completed
+/// and marks it as completed
+pub async fn get_random_question_from_db(pool: &Pool<Sqlite>) -> Result<Leetcode, sqlx::Error> {
+    let mut rows = sqlx::query(
+        "select * from leetcode where have_done == false;"
+    )
+        .fetch_all(pool)
+        .await?;
+
+    let mut rng = rand::thread_rng();
+    let idx = rng.gen_range(0..rows.len());
+    let row = rows.swap_remove(idx);
+    let random_question = Leetcode::new_from_row(row);
+
+    Ok(random_question)
+
+}
+
+/// uses database id to mark question as completed
+pub async fn mark_question_as_done(id: i32, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "UPDATE leetcode SET have_done = true WHERE id == ?;"
+    )
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+/// uses database id to mark question as not completed. Mainly used for testing. 
+pub async fn mark_question_as_not_completed(id: i32, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "UPDATE leetcode SET have_done = false WHERE id == ?;"
+    )
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+/// Used for updating db after a scrape of questions
+/// Make public for general use
+async fn add_leetcode_entries_to_db(
     questions: Vec<Leetcode>,
     pool: &Pool<Sqlite>,
 )
@@ -38,37 +105,3 @@ pub async fn add_leetcode_entries_to_db(
     }
     Ok(())
 }
-
-/// id is auto-incrementing sql id, not leetcode number
-/// assumes table layout
-/// //todo - change to fit new table
-// pub async fn have_done_question(id: i32, pool: &Pool<Sqlite>) -> Result<bool, sqlx::Error> {
-//     let row = sqlx::query (
-//         "SELECT * FROM leetcode WHERE id == ?;")
-//         .bind(id)
-//         .fetch(pool)
-//         .await?;
-//     Ok(row.get::<bool, _>(4))
-// }
-
-pub async fn get_all_questions(pool: &Pool<Sqlite>) -> Result<Vec<Leetcode>, sqlx::Error> {
-    let rows = sqlx::query(
-        "SELECT * FROM leetcode;"
-    )
-        .fetch_all(pool)
-        .await?;
-
-    let mut questions = Vec::new();
-    for row in rows {
-        let question = Leetcode::new(row.get::<String, _>(1), row.get::<String, _>(2));
-        questions.push(question);
-    }
-    Ok(questions)
-}
-
-/// Assumes the question parameter is a url in the form https://leetcode.com
-pub async fn get_question_from_url(question: &String, pool: &Pool<Sqlite>) -> Result<Leetcode, sqlx::Error> {
-    let row = sqlx::query("select * from leetcode where problem_link == ?")
-        .bind(question)
-}
-

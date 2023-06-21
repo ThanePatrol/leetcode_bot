@@ -4,8 +4,7 @@ mod db_api;
 mod utils;
 mod discord_api;
 
-use std::thread;
-use std::time::Duration;
+use std::rc::Rc;
 use discord::Discord;
 use discord::model::{Channel, ChannelId, Event, ServerId};
 use tokio::join;
@@ -19,13 +18,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     let pool = db_api::init_db(&db_url).await?;
 
 
-    //
-    // let discord = Discord::from_bot_token(&bot_token)
-    //     .expect("login failed");
-    //
-    //
-    // let (mut connection, ready) = discord.connect().expect("connection failed");
-    //
+    let discord = Discord::from_bot_token(&bot_token)
+        .expect("login failed");
+
+    let (mut connection, ready) = discord.connect()
+        .expect("connection failed");
+
+    let command_channel = std::env::var("COMMAND_CHANNEL_ID")
+        .expect("Error reading command channel from .env")
+        .parse::<u64>()
+        .unwrap();
+
+    let question_channel = std::env::var("QUESTION_CHANNEL_ID")
+        .expect("Error reading question channel from .env")
+        .parse::<u64>()
+        .unwrap();
+
+    let api = discord_api::DiscordAPI::new(
+        Rc::new(discord), command_channel, question_channel);
+
+
     // //discord.edit_member_roles() can be used to assign a role to a user
     //
     // for server in ready.servers.iter() {
@@ -43,21 +55,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     //         }
     //     }
     // }
-    let mut driver_process = scrapers::init_webdriver();
-    thread::sleep(Duration::from_millis(500));
-    let questions = db_api::get_all_questions(&pool).await?;
-    // println!("{:?}", questions);
-    let mut new_questions = Vec::new();
-    for question in questions {
-        let new_question = scrapers::get_problem_details(question).await?;
-        new_questions.push(new_question);
-    }
 
-    db_api::add_leetcode_entries_to_db(new_questions, &pool).await?;
 
-    println!("done :)");
-    join!();
-    driver_process.kill()?;
     Ok(())
 }
 
