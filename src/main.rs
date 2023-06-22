@@ -4,22 +4,28 @@ mod db_api;
 mod utils;
 mod discord_api;
 
+use std::collections::HashSet;
+use std::error::Error;
 use std::rc::Rc;
-use discord::Discord;
-use discord::model::{Channel, ChannelId, Event, ServerId};
+use std::thread;
+use std::time::Duration;
+use discord::{Discord, GetMessages};
+use discord::model::{Channel, ChannelId, Event, Message, ServerId};
 use tokio::join;
+use crate::discord_api::{CommandType, DiscordAPI, QuestionQueue};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>>{
-    let env_file = dotenvy::dotenv().expect("Could not read .env file");
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenvy::dotenv().expect("Could not read .env file");
     let bot_token = std::env::var("BOT_TOKEN").expect("Error reading token from .env");
 
     let db_url = std::env::var("DATABASE_URL").expect("Error reading db url from .env");
-    let pool = db_api::init_db(&db_url).await?;
+    let pool = Rc::new(db_api::init_db(&db_url).await?);
 
 
     let discord = Discord::from_bot_token(&bot_token)
         .expect("login failed");
+    let discord = Rc::new(discord);
 
     let (mut connection, ready) = discord.connect()
         .expect("connection failed");
@@ -34,8 +40,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
         .parse::<u64>()
         .unwrap();
 
+    let easy_id = std::env::var("EASY_ROLE_ID")
+        .expect("Error reading role id from .env")
+        .parse::<u64>()
+        .unwrap();
+
+    let med_id = std::env::var("MED_ROLE_ID")
+        .expect("Error reading role id from .env")
+        .parse::<u64>()
+        .unwrap();
+
+    let hard_id = std::env::var("HARD_ROLE_ID")
+        .expect("Error reading role id from .env")
+        .parse::<u64>()
+        .unwrap();
+
+    let bot_id = std::env::var("BOT_USER_ID")
+        .expect("Error reading bot id from .env")
+        .parse::<u64>()
+        .unwrap();
+
     let api = discord_api::DiscordAPI::new(
-        Rc::new(discord), command_channel, question_channel);
+        discord.clone(),
+        command_channel,
+        question_channel,
+        easy_id,
+        med_id,
+        hard_id,
+        bot_id
+    );
+
+    let mut question_queue = QuestionQueue::new(pool);
+    let mut seen_commands = HashSet::new();
 
 
     // //discord.edit_member_roles() can be used to assign a role to a user
@@ -56,20 +92,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>{
     //     }
     // }
 
+    // listen for commands
 
-    Ok(())
-}
+    loop {
 
-fn ping_with_daily(channel_id: u64, role_id: u64, link: &str, client: &Discord) -> Result<(), Box<dyn std::error::Error>> {
-    let msg = format!("<@&{}> The daily question is {}", role_id, link);
-    client.send_message(
-        ChannelId(channel_id),
-        &*msg,
-        "",
-        false,
-    )?;
+        // check for command
+        if let Ok(mut command) = discord.as_ref().get_messages(
+            ChannelId(api.command_channel_id), GetMessages::MostRecent, Some(1)) {
+            let mut cmd = String::new();
+            match command.pop() {
+                None => {continue}
+                Some(c) => {
+                    if seen_commands.contains(&c.id) {
+                        continue
+                    }
+                    seen_commands.insert(c.id);
+                    if c.author.bot {continue}
+                    cmd = c.content;
+                }
+            }
 
-    Ok(())
+            // parse command
+            match DiscordAPI::parse_command(&cmd) {
+                Err(e) => {api.send_error_message(Box::new(e))}
+                Ok(action) => {
+
+                    match action {
+                        CommandType::AddQuestion => {
+                            match api.add_question_to_queue(&cmd, &mut question_queue).await {
+                                Ok(_) => { api.send_confirmation_message("Question added to queue :)") }
+                                Err(e) => { api.send_error_message(e) }
+                            };
+                        }
+                        CommandType::PostQuestion => {
+                            match api.ping_with_daily(&mut question_queue).await {
+                                Ok(_) => {api.send_confirmation_message("Pinged people :)") }
+                                Err(e) => { api.send_error_message(e)}
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            thread::sleep(Duration::from_secs(1));
+        }
+        thread::sleep(Duration::from_millis(1500));
+
+
+    }
 }
 
 #[cfg(test)]
