@@ -2,8 +2,11 @@ use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
+use discord::builders::EditChannel;
 use discord::Discord;
-use discord::model::ChannelId;
+use discord::model::{ChannelId, Message};
+use reqwest::{Client, header};
+use reqwest::header::HeaderMap;
 use sqlx::{Pool, Sqlite};
 use crate::db_api;
 use crate::discord_api::CommandType::{AddQuestion, PostQuestion};
@@ -27,13 +30,12 @@ impl QuestionQueue {
             queue: Default::default(),
             pool,
         }
-
     }
 
     /// Provides the next question, removes it from the queue
     /// if there is nothing in the queue it selects a random question.
     /// In both cases the question is marked as completed
-    pub async fn get_next_question(&mut self) -> Result<Leetcode, sqlx::Error>{
+    pub async fn get_next_question(&mut self) -> Result<Leetcode, sqlx::Error> {
         let question = match self.queue.pop_front() {
             Some(q) => q,
             None => db_api::get_random_question_from_db(self.pool.as_ref()).await?,
@@ -54,7 +56,6 @@ impl QuestionQueue {
     pub fn get_current_questions_in_queue(&self) -> Vec<Leetcode> {
         self.queue.iter().cloned().collect()
     }
-
 }
 
 /// Provides a thin wrapper around the Discord crate.
@@ -62,6 +63,7 @@ impl QuestionQueue {
 /// these channels are defined at creation time of the struct
 pub struct DiscordAPI {
     client: Rc<Discord>,
+    bot_token: String,
     pub command_channel_id: u64,
     pub question_channel_id: u64,
     pub role_id_easy: u64,
@@ -73,6 +75,7 @@ pub struct DiscordAPI {
 impl DiscordAPI {
     pub fn new(
         client: Rc<Discord>,
+        bot_token: String,
         command_channel: u64,
         question_channel: u64,
         role_id_easy: u64,
@@ -81,17 +84,20 @@ impl DiscordAPI {
         bot_id: u64) -> Self {
         Self {
             client,
+            bot_token,
             command_channel_id: command_channel,
             question_channel_id: question_channel,
             role_id_easy,
             role_id_med,
             role_id_hard,
-            bot_id
+            bot_id,
         }
     }
 
     pub async fn ping_with_daily(&self, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
         let question = question_queue.get_next_question().await?;
+
+        let thread_name = DiscordAPI::build_thread_name(&question);
 
         let role_id = match question.difficulty {
             Difficulty::Easy => self.role_id_easy,
@@ -100,14 +106,30 @@ impl DiscordAPI {
         };
 
         let msg = format!("<@&{}> The daily question is {}", role_id, question.url.clone());
-        self.client.send_message(
+        let message = self.client.send_message(
             ChannelId(self.question_channel_id),
             &*msg,
             "",
             false,
         )?;
 
+        Self::create_new_thread_with_message(self, message, &thread_name).await?;
+
         Ok(())
+    }
+
+    fn build_thread_name(question: &Leetcode) -> String {
+        let mut thread_name = String::new();
+        match question.difficulty {
+            Difficulty::Easy => thread_name.push_str(":green_circle: "),
+            Difficulty::Medium => thread_name.push_str(":yellow_circle: "),
+            Difficulty::Hard => thread_name.push_str(":red_circle: "),
+        }
+        thread_name.push_str(&*question.number.to_string());
+        thread_name.push_str(". ");
+        thread_name.push_str(&*question.name);
+
+        thread_name
     }
 
     /// Assumes the problem_url is in the data base, will fail if it is not present.
@@ -121,13 +143,52 @@ impl DiscordAPI {
                     return Err(Box::new(UserError("Unrecognised problem, make sure problem url is \
                     in the format https://leetcode.com/problems/two-sum/ \
                     and the problem is in the database. \n Note that the url \
-                    does not have /description after it".to_string())))
+                    does not have /description after it".to_string())));
                 }
             }
         } else {
-            return Err(Box::new(UserError("Ensure command is in format: push..`url`".to_string())))
+            return Err(Box::new(UserError("Ensure command is in format: push..`url`".to_string())));
         }
 
+        Ok(())
+    }
+
+    /// Need to raw-dog the discord api  to make a new thread from a message
+    /// as the rust client does not have support for it...
+    async fn create_new_thread_with_message(
+        &self,
+        message: Message,
+        thread_name: &String,
+    )
+        -> Result<(), Box<dyn Error>> {
+        // let client = Client::new();
+        // let mut header = HeaderMap::new();
+        // header.insert(header::AUTHORIZATION, self.bot_token.clone().parse().unwrap());
+        //
+        // let url = format!(
+        //     "https://discord.com/api/v10/channels/{}/messages/{}/threads",
+        //     self.question_channel_id,
+        //     message.id.0
+        // );
+        //
+        // let body = serde_json::json!({
+        //     "name": thread_name,
+        //     "rate_limit_per_user": 0,
+        // });
+        //
+        // let res = client.post(&url)
+        //     .headers(header)
+        //     .json(&body)
+        //     .send()
+        //     .await?;
+        // println!("{:?}", res);
+        let channel = self.client.as_ref()
+            .create_thread(
+                ChannelId(self.question_channel_id),
+                message.id,
+                |ch| ch.name(thread_name.as_str()))?;
+        println!("{:?}", channel);
+        //todo, provide the thread name to the create_thread function
         Ok(())
     }
 
@@ -153,7 +214,6 @@ impl DiscordAPI {
         } else {
             Err(UserError("Ensure command is in format: action..".to_string()))
         }
-
     }
 
     pub fn send_error_message(&self, error: Box<dyn Error>) {
@@ -170,7 +230,7 @@ impl DiscordAPI {
             ChannelId(self.command_channel_id),
             text,
             "",
-            false
+            false,
         ).expect("Couldn't send confirmation message");
     }
 }
@@ -217,8 +277,6 @@ mod tests {
         assert_eq!(question.have_solved, true);
 
         db_api::mark_question_as_not_completed(question.db_id as i32, pool.as_ref()).await.unwrap();
-
-
     }
 }
 

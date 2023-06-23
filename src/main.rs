@@ -62,6 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let api = discord_api::DiscordAPI::new(
         discord.clone(),
+        bot_token.clone(),
         command_channel,
         question_channel,
         easy_id,
@@ -69,6 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         hard_id,
         bot_id
     );
+
 
     let mut question_queue = QuestionQueue::new(pool);
     let mut seen_commands = HashSet::new();
