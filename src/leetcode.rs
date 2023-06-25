@@ -14,6 +14,8 @@ pub struct Leetcode {
 }
 
 impl Leetcode {
+    /// Used for initial scraping of sites. Not used in general usage
+    #[allow(dead_code)]
     pub fn new(name: String, url: String) -> Self {
         Self {
             db_id: 0,
@@ -26,7 +28,7 @@ impl Leetcode {
         }
     }
 
-    // creates a new question instance from a row fetched from DB
+    /// Creates a new question instance from a row fetched from DB
     pub fn new_from_row(row: SqliteRow) -> Self {
         Self {
             db_id: row.get::<i32, _>(0) as u32,
@@ -43,8 +45,6 @@ impl Leetcode {
         serde_json::ser::to_string(&self.categories)
             .expect("Error serializing category")
     }
-
-
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,7 +55,6 @@ pub enum Difficulty {
 }
 
 impl Difficulty {
-    /// used for creating a new enum or deserializing from db
     pub fn new(input: String) -> Self {
         match input.as_str() {
             "Easy" => Easy,

@@ -7,3 +7,7 @@
 - [ ] Allow posting of multiple questions at once
 - [x] Create threads for questions
 - [ ] Post at certain time of day
+- [ ] Document usage
+- [ ] Grind75 add and scrape
+- [ ] Add questions to queue based upon question number
+- [ ] Scrape actual daily questions

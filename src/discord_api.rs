@@ -63,7 +63,6 @@ impl QuestionQueue {
 /// these channels are defined at creation time of the struct
 pub struct DiscordAPI {
     client: Rc<Discord>,
-    bot_token: String,
     pub command_channel_id: u64,
     pub question_channel_id: u64,
     pub role_id_easy: u64,
@@ -75,7 +74,6 @@ pub struct DiscordAPI {
 impl DiscordAPI {
     pub fn new(
         client: Rc<Discord>,
-        bot_token: String,
         command_channel: u64,
         question_channel: u64,
         role_id_easy: u64,
@@ -84,7 +82,6 @@ impl DiscordAPI {
         bot_id: u64) -> Self {
         Self {
             client,
-            bot_token,
             command_channel_id: command_channel,
             question_channel_id: question_channel,
             role_id_easy,
@@ -121,9 +118,9 @@ impl DiscordAPI {
     fn build_thread_name(question: &Leetcode) -> String {
         let mut thread_name = String::new();
         match question.difficulty {
-            Difficulty::Easy => thread_name.push_str(":green_circle: "),
-            Difficulty::Medium => thread_name.push_str(":yellow_circle: "),
-            Difficulty::Hard => thread_name.push_str(":red_circle: "),
+            Difficulty::Easy => thread_name.push_str("\u{1F7E2} "),
+            Difficulty::Medium => thread_name.push_str("\u{1F7E1} "),
+            Difficulty::Hard => thread_name.push_str("\u{1F534} "),
         }
         thread_name.push_str(&*question.number.to_string());
         thread_name.push_str(". ");
@@ -161,27 +158,6 @@ impl DiscordAPI {
         thread_name: &String,
     )
         -> Result<(), Box<dyn Error>> {
-        // let client = Client::new();
-        // let mut header = HeaderMap::new();
-        // header.insert(header::AUTHORIZATION, self.bot_token.clone().parse().unwrap());
-        //
-        // let url = format!(
-        //     "https://discord.com/api/v10/channels/{}/messages/{}/threads",
-        //     self.question_channel_id,
-        //     message.id.0
-        // );
-        //
-        // let body = serde_json::json!({
-        //     "name": thread_name,
-        //     "rate_limit_per_user": 0,
-        // });
-        //
-        // let res = client.post(&url)
-        //     .headers(header)
-        //     .json(&body)
-        //     .send()
-        //     .await?;
-        // println!("{:?}", res);
         let channel = self.client.as_ref()
             .create_thread(
                 ChannelId(self.question_channel_id),
@@ -258,7 +234,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_queue_pop() {
-        let env_file = dotenvy::dotenv().expect("Could not read .env file");
+        dotenvy::dotenv().expect("Could not read .env file");
         let db_url = std::env::var("DATABASE_URL").expect("Error reading db url from .env");
         let pool = Rc::new(db_api::init_db(&db_url).await.unwrap());
 

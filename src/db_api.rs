@@ -11,8 +11,7 @@ pub async fn init_db(db_url: &String) -> Result<Pool<Sqlite>, sqlx::Error> {
     Ok(pool)
 }
 
-
-
+#[allow(dead_code)]
 pub async fn get_all_questions(pool: &Pool<Sqlite>) -> Result<Vec<Leetcode>, sqlx::Error> {
     let rows = sqlx::query(
         "SELECT * FROM leetcode;"
@@ -40,7 +39,6 @@ pub async fn get_question_from_url(question: &String, pool: &Pool<Sqlite>) -> Re
 
 
 /// Retries a random question from the database that is not marked as completed
-/// and marks it as completed
 pub async fn get_random_question_from_db(pool: &Pool<Sqlite>) -> Result<Leetcode, sqlx::Error> {
     let mut rows = sqlx::query(
         "select * from leetcode where have_done == false;"
@@ -68,7 +66,8 @@ pub async fn mark_question_as_done(id: i32, pool: &Pool<Sqlite>) -> Result<(), s
     Ok(())
 }
 
-/// uses database id to mark question as not completed. Mainly used for testing. 
+/// uses database id to mark question as not completed. Mainly used for testing.
+#[allow(dead_code)]
 pub async fn mark_question_as_not_completed(id: i32, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
     sqlx::query(
         "UPDATE leetcode SET have_done = false WHERE id == ?;"
@@ -81,6 +80,7 @@ pub async fn mark_question_as_not_completed(id: i32, pool: &Pool<Sqlite>) -> Res
 
 /// Used for updating db after a scrape of questions
 /// Make public for general use
+#[allow(dead_code)]
 async fn add_leetcode_entries_to_db(
     questions: Vec<Leetcode>,
     pool: &Pool<Sqlite>,
@@ -92,7 +92,7 @@ async fn add_leetcode_entries_to_db(
         let problem_categories = question.serialize_categories();
 
         sqlx::query (
-            "INSERT OR IGNORE INTO leetcode2 (problem_num, problem_name, problem_link, difficulty,\
+            "INSERT OR IGNORE INTO leetcode (problem_num, problem_name, problem_link, difficulty,\
              problem_categories, have_done) \
             VALUES (?, ?, ?, ?, ?, ?);")
             .bind(question.number)
