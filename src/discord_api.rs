@@ -6,7 +6,7 @@ use discord::Discord;
 use discord::model::{ChannelId, Message};
 use sqlx::{Pool, Sqlite};
 use crate::db_api;
-use crate::discord_api::CommandType::{AddQuestion, PostQuestion};
+use crate::discord_api::CommandType::{AddQuestion, PostQuestion, ViewQuestions};
 use crate::leetcode::{Difficulty, Leetcode};
 
 /// A queue like structure that can be appended to with discord commands
@@ -132,6 +132,17 @@ impl DiscordAPI {
         thread_name
     }
 
+    pub async fn get_all_questions_in_queue(&self, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
+        let questions = question_queue.get_current_questions_in_queue();
+        self.client.as_ref()
+            .send_message(
+                ChannelId(self.command_channel_id),
+                &*format!("The questions are: {:?}", questions),
+                "",
+                false)?;
+        Ok(())
+    }
+
     /// Assumes the question is in the data base, will fail if it is not present.
     /// Assumes question is in format push..`url` OR push..`num`
     /// where `url` is in the format https://leetcode.com/problems/two-sum/description/
@@ -224,6 +235,7 @@ impl DiscordAPI {
             match split {
                 "push" => Ok(AddQuestion),
                 "pop" => Ok(PostQuestion),
+                "view" => Ok(ViewQuestions),
                 _ => Err(UserError("Ensure command is in format: action..".to_string())),
             }
         } else {
@@ -253,6 +265,7 @@ impl DiscordAPI {
 pub enum CommandType {
     AddQuestion,
     PostQuestion,
+    ViewQuestions,
 }
 
 #[derive(Debug)]

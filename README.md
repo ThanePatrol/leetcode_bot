@@ -32,6 +32,8 @@ Note the url format.
 If the queue is empty, a random question will be returned. 
 Only people who have been subscribed to the question difficulty will be notified.
 
+### View
+`view` - this shows the details of the questions currently in the queue
 
 ## Difficulty
 Notifications will only be sent to those who have signed up for the role. 

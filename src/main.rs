@@ -5,6 +5,7 @@ mod utils;
 mod discord_api;
 
 use std::collections::HashSet;
+use std::error::Error;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -25,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("login failed");
     let discord = Rc::new(discord);
 
-    let (mut connection, ready) = discord.connect()
+    let (_, _) = discord.connect()
         .expect("connection failed");
 
     let command_channel = std::env::var("COMMAND_CHANNEL_ID")
@@ -95,7 +96,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match DiscordAPI::parse_command(&cmd) {
                 Err(e) => {api.send_error_message(Box::new(e))}
                 Ok(action) => {
-
                     match action {
                         CommandType::AddQuestion => {
                             match api.add_question_to_queue(&cmd, &mut question_queue).await {
@@ -107,6 +107,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             match api.ping_with_daily(&mut question_queue).await {
                                 Ok(_) => {api.send_confirmation_message("Pinged people :)") }
                                 Err(e) => { api.send_error_message(e)}
+                            }
+                        }
+                        CommandType::ViewQuestions => {
+                            match api.get_all_questions_in_queue(&mut question_queue).await {
+                                Ok(_) => {}
+                                Err(e) => {api.send_error_message(e)}
                             }
                         }
                     }
