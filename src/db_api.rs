@@ -29,11 +29,20 @@ pub async fn get_all_questions(pool: &Pool<Sqlite>) -> Result<Vec<Leetcode>, sql
 
 /// Assumes the question parameter is a url in the form https://leetcode.com/problems/two-sum/
 pub async fn get_question_from_url(question: &String, pool: &Pool<Sqlite>) -> Result<Leetcode, sqlx::Error> {
-    let row = sqlx::query("select * from leetcode where problem_link == ?")
+    let row = sqlx::query("select * from leetcode where problem_link == ?;")
         .bind(question)
         .fetch_one(pool)
         .await?;
 
+    Ok(Leetcode::new_from_row(row))
+}
+
+/// Assumes question is strictly numeric and question is in the database
+pub async fn get_question_from_number(question_number: i32, pool: &Pool<Sqlite>) -> Result<Leetcode, sqlx::Error> {
+    let row = sqlx::query("select * from leetcode where problem_num == ?;")
+        .bind(question_number)
+        .fetch_one(pool)
+        .await?;
     Ok(Leetcode::new_from_row(row))
 }
 
@@ -52,7 +61,6 @@ pub async fn get_random_question_from_db(pool: &Pool<Sqlite>) -> Result<Leetcode
     let random_question = Leetcode::new_from_row(row);
 
     Ok(random_question)
-
 }
 
 /// uses database id to mark question as completed
@@ -86,12 +94,11 @@ async fn add_leetcode_entries_to_db(
     pool: &Pool<Sqlite>,
 )
     -> Result<(), sqlx::Error> {
-
     for question in questions {
         let difficulty = question.difficulty.serialize_to_str();
         let problem_categories = question.serialize_categories();
 
-        sqlx::query (
+        sqlx::query(
             "INSERT OR IGNORE INTO leetcode (problem_num, problem_name, problem_link, difficulty,\
              problem_categories, have_done) \
             VALUES (?, ?, ?, ?, ?, ?);")

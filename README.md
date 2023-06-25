@@ -3,9 +3,20 @@ Discord bot for pinging people with daily leetcode questions.
 The aim is to allow discord groups to easily have a daily question posted from a curated 
 list of questions, either randomly or in a queue. 
 
+## Quickstart
+The preferred method of installation is via a docker-compose file. 
+An example file might look like this:
+```yaml
+version: 3
+# rest of file here
+```
+Note that the database file will need to be downloaded from this repository separately.
+
+//todo - check this
+You will also need to provide a `.env` file in the same directory as the database  
 
 ## Usage
-Currently, the supported commands are:
+Currently, the supported commands are `push` and `pop`
 
 ### Push
 
@@ -20,6 +31,7 @@ Note the url format.
 
 If the queue is empty, a random question will be returned. 
 Only people who have been subscribed to the question difficulty will be notified.
+
 
 ## Difficulty
 Notifications will only be sent to those who have signed up for the role. 

@@ -2,11 +2,8 @@ use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
-use discord::builders::EditChannel;
 use discord::Discord;
 use discord::model::{ChannelId, Message};
-use reqwest::{Client, header};
-use reqwest::header::HeaderMap;
 use sqlx::{Pool, Sqlite};
 use crate::db_api;
 use crate::discord_api::CommandType::{AddQuestion, PostQuestion};
@@ -46,8 +43,14 @@ impl QuestionQueue {
         Ok(question)
     }
 
-    pub async fn push_to_back(&mut self, problem_url: &String) -> Result<(), sqlx::Error> {
+    pub async fn push_url_to_back(&mut self, problem_url: &String) -> Result<(), sqlx::Error> {
         let question = db_api::get_question_from_url(problem_url, self.pool.as_ref()).await?;
+        self.queue.push_back(question);
+        Ok(())
+    }
+
+    pub async fn push_question_num_to_back(&mut self, problem_num: i32) -> Result<(), sqlx::Error> {
+        let question = db_api::get_question_from_number(problem_num, self.pool.as_ref()).await?;
         self.queue.push_back(question);
         Ok(())
     }
@@ -129,12 +132,22 @@ impl DiscordAPI {
         thread_name
     }
 
-    /// Assumes the problem_url is in the data base, will fail if it is not present.
-    /// Assumes question is in format push..`url`
+    /// Assumes the question is in the data base, will fail if it is not present.
+    /// Assumes question is in format push..`url` OR push..`num`
     /// where `url` is in the format https://leetcode.com/problems/two-sum/description/
+    /// and where `num` is the number of the question, eg 1 for Two Sum
     pub async fn add_question_to_queue(&self, user_input: &String, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
-        if let Some(url) = Self::parse_problem_url(user_input.as_ref()) {
-            match question_queue.push_to_back(&url.to_string()).await {
+        if Self::is_numeric(user_input.as_ref()) {
+            self.add_question_as_number_to_queue(user_input, question_queue).await?
+        } else {
+            self.add_question_as_url_to_queue(user_input, question_queue).await?
+        }
+        Ok(())
+    }
+
+    async fn add_question_as_url_to_queue(&self, url: &String, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
+        if let Some(url) = Self::split_problem_on_dots(url.as_ref()) {
+            match question_queue.push_url_to_back(&url.to_string()).await {
                 Ok(_) => {}
                 Err(_) => {
                     return Err(Box::new(UserError("Unrecognised problem, make sure problem url is \
@@ -146,33 +159,59 @@ impl DiscordAPI {
         } else {
             return Err(Box::new(UserError("Ensure command is in format: push..`url`".to_string())));
         }
+        Ok(())
+    }
+
+    /// Assumes number is strictly numeric
+    async fn add_question_as_number_to_queue(&self, number: &String, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
+        let number = Self::split_problem_on_dots(number)
+            .unwrap_or("a")
+            .parse::<i32>()?;
+        match question_queue.push_question_num_to_back(number).await {
+            Ok(_) => {}
+            Err(_) => {
+                return Err(Box::new(UserError("Unrecognised problem, make sure problem number is \
+                    correct and the problem is in the database".to_string())));
+            }
+        }
 
         Ok(())
     }
 
-    /// Need to raw-dog the discord api  to make a new thread from a message
-    /// as the rust client does not have support for it...
+    /// Creates a new thread for the question from the message
     async fn create_new_thread_with_message(
         &self,
         message: Message,
         thread_name: &String,
     )
         -> Result<(), Box<dyn Error>> {
-        let channel = self.client.as_ref()
+        let _ = self.client.as_ref()
             .create_thread(
                 ChannelId(self.question_channel_id),
                 message.id,
                 |ch| ch.name(thread_name.as_str()))?;
-        println!("{:?}", channel);
-        //todo, provide the thread name to the create_thread function
         Ok(())
     }
 
-    /// Trims an splits an users discord command
-    fn parse_problem_url(user_input: &str) -> Option<&str> {
+
+    /// Trims and splits a users discord command
+    fn split_problem_on_dots(user_input: &str) -> Option<&str> {
         let trimmed = user_input.trim();
         let split = trimmed.split("..").last()?;
         Some(split)
+    }
+
+    /// Check if part after the dots is numeric
+    /// unwrap_or("a") as we want to handle errors in the url parsing section
+    /// returning false here will force the url handler to deal with incorrect errors
+    /// rather than duplicating work
+    fn is_numeric(input: &str) -> bool {
+        input.trim()
+            .split("..")
+            .last()
+            .unwrap_or("a")
+            .chars()
+            .all(|c| c.is_numeric())
     }
 
     /// Reads the first part of the command, returning an enum to dictate what type of command
@@ -241,7 +280,7 @@ mod tests {
         let two_sum = "https://leetcode.com/problems/two-sum/".to_string();
 
         let mut queue = QuestionQueue::new(pool.clone());
-        queue.push_to_back(&two_sum).await.unwrap();
+        queue.push_url_to_back(&two_sum).await.unwrap();
 
         assert_eq!(queue.queue.len(), 1);
         assert_eq!(queue.queue.front().unwrap().have_solved, false);

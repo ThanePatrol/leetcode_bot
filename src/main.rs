@@ -5,13 +5,11 @@ mod utils;
 mod discord_api;
 
 use std::collections::HashSet;
-use std::error::Error;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 use discord::{Discord, GetMessages};
-use discord::model::{Channel, ChannelId, Event, Message, ServerId};
-use tokio::join;
+use discord::model::{ChannelId, Event, Message, ServerId};
 use crate::discord_api::{CommandType, DiscordAPI, QuestionQueue};
 
 #[tokio::main]

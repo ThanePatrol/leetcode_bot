@@ -152,14 +152,16 @@ mod scraper {
 
 #[cfg(test)]
 mod tests {
+    use crate::scrapers;
+    use scrapers::scraper::*;
     use super::*;
 
     //assumes chromedriver is already running and the total amount of neetcode questions is 434
     #[tokio::test]
     async fn test_all_questions_scraped_from_neetcode() {
         let env_file = dotenvy::dotenv().expect("Could not read .env file");
-        let driver = scrapers::init_webdriver();
-        let questions = scrapers::scrape_neetcode().await.unwrap();
+        let driver = init_webdriver();
+        let questions = scrape_neetcode().await.unwrap();
         assert_eq!(questions.len(), 434);
     }
 }
