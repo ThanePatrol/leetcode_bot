@@ -5,12 +5,14 @@ mod utils;
 mod discord_api;
 
 use std::collections::HashSet;
-use std::error::Error;
+use std::ops::Sub;
 use std::rc::Rc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration};
 use discord::{Discord, GetMessages};
-use discord::model::{ChannelId, Event, Message, ServerId};
+use discord::model::{ChannelId, Message, ServerId};
+use time::macros::{format_description};
+use time::{OffsetDateTime, Time};
 use crate::discord_api::{CommandType, DiscordAPI, QuestionQueue};
 
 #[tokio::main]
@@ -59,18 +61,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .parse::<u64>()
         .unwrap();
 
-    let api = discord_api::DiscordAPI::new(
+    let announcement_text = std::env::var("ANNOUNCEMENT_TEXT")
+        .expect("Error reading announcement text from .env");
+
+    let posting_time = std::env::var("TIME_TO_POST")
+        .expect("Error reading posting time from .env");
+
+    let format = format_description!("[hour]:[minute]:[second]");
+    let posting_time = Time::parse(&*posting_time, &format)
+        .expect("Error parsing time from .env");
+
+    let mut time_at_last_ping = OffsetDateTime::now_utc().sub(Duration::from_secs(86400));
+
+    let api = DiscordAPI::new(
         discord.clone(),
         command_channel,
         question_channel,
         easy_id,
         med_id,
         hard_id,
-        bot_id
+        bot_id,
+        announcement_text,
     );
 
 
     let mut question_queue = QuestionQueue::new(pool);
+
+    // make sure we don't respond multiple times to the same question
     let mut seen_commands = HashSet::new();
 
 
@@ -120,9 +137,43 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         } else {
             thread::sleep(Duration::from_secs(1));
+
+            // check if it's the time of day to make a post
+            let duration_since_last_ping = OffsetDateTime::now_utc() - time_at_last_ping;
+            let now_time = OffsetDateTime::now_utc().time();
+
+            // check if the current time is within 5 minutes of the posting window
+            let is_within_posting_window = (now_time - posting_time).whole_minutes() < 5;
+            if duration_since_last_ping.whole_hours() <= 24 && is_within_posting_window {
+                api.ping_with_daily(&mut question_queue).await?;
+                time_at_last_ping = OffsetDateTime::now_utc();
+            }
+
         }
-        thread::sleep(Duration::from_millis(1500));
+        thread::sleep(Duration::from_secs(1));
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duration_checks_are_accurate() {
+        let posting_time = OffsetDateTime::now_utc().time();
+        let time_at_last_ping = OffsetDateTime::now_utc()
+            .sub(Duration::from_secs(86400));
+
+        let duration_since_last_ping = OffsetDateTime::now_utc() - time_at_last_ping;
+        assert!(duration_since_last_ping.whole_hours() <= 24);
+
+        let now_time = OffsetDateTime::now_utc().time();
+
+        // check if the current time is within 5 minutes of the posting window
+        let is_within_posting_window = (now_time - posting_time).whole_minutes() < 5;
+
+        assert!(is_within_posting_window);
+    }
+
+}
 

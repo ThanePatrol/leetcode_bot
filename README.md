@@ -4,6 +4,8 @@ The aim is to allow discord groups to easily have a daily question posted from a
 list of questions, either randomly or in a queue. 
 
 ## Quickstart
+You will need to create roles for people to be notified of the questions. 
+
 The preferred method of installation is via a docker-compose file. 
 An example file might look like this:
 ```yaml
@@ -14,6 +16,39 @@ Note that the database file will need to be downloaded from this repository sepa
 
 //todo - check this
 You will also need to provide a `.env` file in the same directory as the database  
+An example `.env` file would look like:
+```dotenv
+# Where xxx is your bot token
+BOT_TOKEN=xxx
+
+# This path assumes the database is in the same directory as the binary
+# todo - check this
+DATABASE_URL="sqlite://./leetcode_questions.db"
+
+# Where xxx is your discord channel you use for posting questions
+QUESTION_CHANNEL_ID=xxx
+
+# Where xxx is your discord channel used for posting bot commands
+# ideally this is the only use of the channel
+COMMAND_CHANNEL_ID=xxx
+
+# Where xxx is your bot user id
+BOT_USER_ID=xxx
+
+# Where xxx is your role id for specific questions
+# if you don't want multiple roles, assign them to the same value
+EASY_ROLE_ID=xxx
+MED_ROLE_ID=xxx
+HARD_ROLE_ID=xxx
+
+# Customize your announcement text here
+ANNOUNCEMENT_TEXT="The daily question is: "
+
+# UTC Time to post the daily question, specified in 24 hour format
+# eg 10:00:00 is 10AM UTC 
+TIME_TO_POST="10:00:00"
+
+```
 
 ## Usage
 Currently, the supported commands are `push` and `pop`
@@ -46,6 +81,10 @@ question, simply set the same role id for all roles in the environment file
 ## Question lists
 Currently, the two supported question lists are Neetcode 150 and Blind 75.
 If you are interested in other lists, please open an issue. 
+
+## Feature requests and support
+If there are additional features you think would be beneficial,
+or issues with installation please open an issue.
 
 ## Premium questions
 Premium questions are not currently supported. 

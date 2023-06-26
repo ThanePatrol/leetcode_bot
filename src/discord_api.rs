@@ -72,6 +72,7 @@ pub struct DiscordAPI {
     pub role_id_med: u64,
     pub role_id_hard: u64,
     pub bot_id: u64,
+    announcement_text: String,
 }
 
 impl DiscordAPI {
@@ -82,7 +83,9 @@ impl DiscordAPI {
         role_id_easy: u64,
         role_id_med: u64,
         role_id_hard: u64,
-        bot_id: u64) -> Self {
+        bot_id: u64,
+        announcement_text: String,
+    ) -> Self {
         Self {
             client,
             command_channel_id: command_channel,
@@ -91,6 +94,7 @@ impl DiscordAPI {
             role_id_med,
             role_id_hard,
             bot_id,
+            announcement_text,
         }
     }
 
@@ -105,7 +109,7 @@ impl DiscordAPI {
             Difficulty::Hard => self.role_id_hard
         };
 
-        let msg = format!("<@&{}> The daily question is {}", role_id, question.url.clone());
+        let msg = format!("<@&{}> {} {}", role_id, self.announcement_text, question.url.clone());
         let message = self.client.send_message(
             ChannelId(self.question_channel_id),
             &*msg,
