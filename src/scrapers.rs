@@ -66,6 +66,7 @@ mod scraper {
         Ok(questions)
     }
 
+
     /// Assumes .env has already been loaded
     /// web driver will exit once the program has finished
     /// unless the the program has previously crashed or chromedriver was launched separately

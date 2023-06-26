@@ -3,9 +3,11 @@
 - [x] Scrape difficulty tags
 - [x] Scrape topic tags
 - [x] Questions in queue, fall back to random
-- [ ] Post formatting
+- [x] Custom post text
 - [x] Create threads for questions
-- [ ] Post at certain time of day
-- [ ] Document usage
+- [x] Post at certain time of day
+- [x] Document usage
 - [ ] Grind75 add and scrape
+- [ ] Build and test docker file
+- [ ] Get docker-compose working
 - [x] Add questions to queue based upon question number
