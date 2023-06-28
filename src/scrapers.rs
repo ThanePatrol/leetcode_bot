@@ -1,12 +1,12 @@
-
 #[allow(dead_code)]
-mod scraper {
+pub mod scraper {
     use std::{process, thread};
     use std::process::Command;
     use std::time::Duration;
     use thirtyfour::error::WebDriverResult;
     use thirtyfour::{By, DesiredCapabilities, WebDriver};
-    use thirtyfour::prelude::{ElementWaitable};
+    use thirtyfour::extensions::query::ElementSelector;
+    use thirtyfour::prelude::{ElementQueryable, ElementWaitable};
     use crate::leetcode::{Difficulty, Leetcode};
 
     /// Everything in this file should be run in a installation that has chromedriver already installed
@@ -66,6 +66,38 @@ mod scraper {
         Ok(questions)
     }
 
+    pub async fn scrape_grind75() -> WebDriverResult<Vec<Leetcode>> {
+        let mut questions = Vec::new();
+
+        let capabilities = DesiredCapabilities::chrome();
+        let driver = WebDriver::new("http://localhost:9515", capabilities).await?;
+
+        driver.goto("https://www.techinterviewhandbook.org/grind75?hours=40&weeks=12&grouping=none").await?;
+
+        // get main div that has all the questions
+        let all_question_div = driver.find(By::XPath(
+            "/html/body/div/main/div[1]/div/div/div[2]/div[2]/div/div/div[3]/div[4]"
+        )).await?;
+
+
+        // get the html of every element
+        for id in 1..=169 {
+            let x_path = format!("/html/body/div/main/div[1]/div/div/div[2]/div[2]/div/div/div[3]/div[4]/div[{}]", id);
+            let child = all_question_div.find(By::XPath(&*x_path)).await?;
+
+            let link_xpath = x_path + "/div[2]/div[1]/div/a";
+            let link = child.find(By::XPath(&*link_xpath)).await?;
+
+            let text = link.inner_html().await?;
+
+            let link_url = link.attr("href").await?.unwrap();
+            let question = Leetcode::new(text, link_url);
+            questions.push(question);
+        }
+
+        Ok(questions)
+    }
+
 
     /// Assumes .env has already been loaded
     /// web driver will exit once the program has finished
@@ -121,11 +153,9 @@ mod scraper {
             question.number = problem_number;
 
 
-
             // get all topics
             let topic_div = driver.find(By::XPath(
                 "//*[@id='qd-content']/div[1]/div/div/div/div[2]/div/div/div[last() - 1]/div/div[2]/div"
-                //"/html/body/div[1]/div/div/div/div/div/div[1]/div/div/div/div[2]/div/div/div[last()]/div/div[2]/div"
             ))
                 .await
                 .expect(&*format!("Error finding topics for {}", question.url));
@@ -133,7 +163,6 @@ mod scraper {
             thread::sleep(Duration::from_millis(2000));
 
             let mut topics = Vec::new();
-
 
 
             for topic in topic_div.find_all(By::Tag("a")).await? {
@@ -146,8 +175,6 @@ mod scraper {
             question.categories = vec!["premium_questions".to_string()];
             Ok(question)
         }
-
-
     }
 }
 

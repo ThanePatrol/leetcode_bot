@@ -89,7 +89,7 @@ pub async fn mark_question_as_not_completed(id: i32, pool: &Pool<Sqlite>) -> Res
 /// Used for updating db after a scrape of questions
 /// Make public for general use
 #[allow(dead_code)]
-async fn add_leetcode_entries_to_db(
+pub async fn add_leetcode_entries_to_db(
     questions: Vec<Leetcode>,
     pool: &Pool<Sqlite>,
 )
@@ -97,6 +97,18 @@ async fn add_leetcode_entries_to_db(
     for question in questions {
         let difficulty = question.difficulty.serialize_to_str();
         let problem_categories = question.serialize_categories();
+
+        // need to check if exists, don't update question if it does
+        let does_exist = sqlx::query(
+            "SELECT COUNT(1) FROM leetcode WHERE problem_num = ?"
+        )
+            .bind(question.number)
+            .fetch_one(pool)
+            .await?;
+        // question already exists
+        if does_exist.get::<i32, _>(0) == 1 {
+            continue
+        }
 
         sqlx::query(
             "INSERT OR IGNORE INTO leetcode (problem_num, problem_name, problem_link, difficulty,\
@@ -112,3 +124,22 @@ async fn add_leetcode_entries_to_db(
     }
     Ok(())
 }
+
+#[allow(dead_code)]
+pub async fn add_grind75_entries_to_db(
+    questions: Vec<Leetcode>,
+    pool: &Pool<Sqlite>,
+)
+    -> Result<(), sqlx::Error> {
+    for question in questions {
+        sqlx::query(
+            "INSERT OR IGNORE INTO grind (problem_name, problem_link) \
+            VALUES (?, ?);")
+            .bind(question.name)
+            .bind(question.url)
+            .execute(pool)
+            .await?;
+    }
+    Ok(())
+}
+
