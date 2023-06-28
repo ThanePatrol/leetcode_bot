@@ -1,0 +1,8 @@
+.idea
+
+target
+resources/
+out
+
+*.md
+.env
