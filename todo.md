@@ -8,6 +8,6 @@
 - [x] Post at certain time of day
 - [x] Document usage
 - [x] Grind75 add and scrape
-- [ ] Build and test docker file
+- [x] Build and test docker file
 - [ ] Get docker-compose working
 - [x] Add questions to queue based upon question number
