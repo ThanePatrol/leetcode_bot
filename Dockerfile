@@ -4,8 +4,6 @@ WORKDIR /usr/app
 
 COPY ./Cargo.toml ./Cargo.toml
 COPY ./Cargo.lock ./Cargo.lock
-
-# copy source code to container
 COPY ./src ./src
 
 RUN cargo build --release
