@@ -10,4 +10,5 @@
 - [x] Grind75 add and scrape
 - [x] Build and test docker file
 - [ ] Get docker-compose working
+- [x] GitHub actions push to dockerhub
 - [x] Add questions to queue based upon question number

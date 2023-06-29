@@ -12,23 +12,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-#      - name: Run database cleanup
-#        run: |
-#          sudo apt install -y sqlite3
-#          sqlite3 resources/leetcode_questions.db "UPDATE leetcode SET have_done = false;"
-#
-#      - name: Commit database changes
-#        run: |
-#          git config --local user.email "action@github.com"
-#          git config --local user.name "GitHub Action"
-#          git commit -m "Set database questions to not completed" -a
-#
-#      - name: Push database changes
-#        uses: ad-m/github-push-action@master
-#        with:
-#          github_token: ${{ secrets.GH_PAT }}
-#          branch: ${{ github.head_ref }}
-
       - name: Login to Dockerhub
         uses: docker/login-action@v2
         with:
