@@ -1,4 +1,4 @@
-# Leetcdoe bot
+# Leetcode bot
 Discord bot for pinging people with daily leetcode questions.
 The aim is to allow discord groups to easily have a daily question posted from a curated 
 list of questions, either randomly or in a queue. 
