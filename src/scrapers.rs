@@ -5,8 +5,7 @@ pub mod scraper {
     use std::time::Duration;
     use thirtyfour::error::WebDriverResult;
     use thirtyfour::{By, DesiredCapabilities, WebDriver};
-    use thirtyfour::extensions::query::ElementSelector;
-    use thirtyfour::prelude::{ElementQueryable, ElementWaitable};
+    use thirtyfour::prelude::{ElementWaitable};
     use crate::leetcode::{Difficulty, Leetcode};
 
     /// Everything in this file should be run in a installation that has chromedriver already installed

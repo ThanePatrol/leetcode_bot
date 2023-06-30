@@ -4,21 +4,18 @@ mod db_api;
 mod utils;
 mod discord_api;
 
-use std::collections::HashSet;
 use std::ops::Sub;
 use std::rc::Rc;
-use std::thread;
 use std::time::{Duration};
-use discord::{Discord, GetMessages};
-use discord::model::{ChannelId, Message, ServerId};
+use discord::{Discord};
+use discord::model::{Event};
 use time::macros::{format_description};
 use time::{OffsetDateTime, Time};
 use crate::discord_api::{CommandType, DiscordAPI, QuestionQueue};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("about to read .env");
-
+    // for reading a local .env, ie not in a docker container
     if let Ok(path) = dotenvy::dotenv() {
         println!(".env read at {:?}", path)
     }
@@ -29,14 +26,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = Rc::new(db_api::init_db(&db_url).await?);
 
 
-
-
     let discord = Discord::from_bot_token(&bot_token)
         .expect("login failed");
     let discord = Rc::new(discord);
 
-    let (_, _) = discord.connect()
+    let (mut connection, _) = discord.connect()
         .expect("connection failed");
+
 
     let command_channel = std::env::var("COMMAND_CHANNEL_ID")
         .expect("Error reading command channel from .env")
@@ -95,69 +91,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut question_queue = QuestionQueue::new(pool);
 
-    // make sure we don't respond multiple times to the same question
-    let mut seen_commands = HashSet::new();
-
     println!("entering main loop");
     loop {
-        // check for command
-        if let Ok(mut command) = discord.as_ref().get_messages(
-            ChannelId(api.command_channel_id), GetMessages::MostRecent, Some(1)) {
-            let mut cmd = String::new();
-            match command.pop() {
-                None => {continue}
-                Some(c) => {
-                    if seen_commands.contains(&c.id) {
-                        continue
-                    }
-                    seen_commands.insert(c.id);
-                    if c.author.bot {continue}
-                    cmd = c.content;
+        match connection.recv_event() {
+            Ok(Event::MessageCreate(message)) => {
+                if message.author.bot {
+                    continue;
                 }
-            }
+                let cmd = message.content;
 
-            // parse command
-            match DiscordAPI::parse_command(&cmd) {
-                Err(e) => {api.send_error_message(Box::new(e))}
-                Ok(action) => {
-                    match action {
-                        CommandType::AddQuestion => {
-                            match api.add_question_to_queue(&cmd, &mut question_queue).await {
-                                Ok(_) => { api.send_confirmation_message("Question added to queue :)") }
-                                Err(e) => { api.send_error_message(e) }
-                            };
-                        }
-                        CommandType::PostQuestion => {
-                            match api.ping_with_daily(&mut question_queue).await {
-                                Ok(_) => {api.send_confirmation_message("Pinged people :)") }
-                                Err(e) => { api.send_error_message(e)}
+                match DiscordAPI::parse_command(&cmd) {
+                    Err(e) => { api.send_error_message(Box::new(e)) }
+                    Ok(action) => {
+                        match action {
+                            CommandType::AddQuestion => {
+                                match api.add_question_to_queue(&cmd, &mut question_queue).await {
+                                    Ok(_) => { api.send_confirmation_message("Question added to queue :)") }
+                                    Err(e) => { api.send_error_message(e) }
+                                };
                             }
-                        }
-                        CommandType::ViewQuestions => {
-                            match api.get_all_questions_in_queue(&mut question_queue).await {
-                                Ok(_) => {}
-                                Err(e) => {api.send_error_message(e)}
+                            CommandType::PostQuestion => {
+                                match api.ping_with_daily(&mut question_queue).await {
+                                    Ok(_) => { api.send_confirmation_message("Pinged people :)") }
+                                    Err(e) => { api.send_error_message(e) }
+                                }
+                            }
+                            CommandType::ViewQuestions => {
+                                match api.get_all_questions_in_queue(&mut question_queue).await {
+                                    Ok(_) => {}
+                                    Err(e) => { api.send_error_message(e) }
+                                }
                             }
                         }
                     }
                 }
             }
-        } else {
-            thread::sleep(Duration::from_secs(1));
+            _ => {
+                // check if it's the time of day to make a post
+                let duration_since_last_ping = OffsetDateTime::now_utc() - time_at_last_ping;
+                let now_time = OffsetDateTime::now_utc().time();
 
-            // check if it's the time of day to make a post
-            let duration_since_last_ping = OffsetDateTime::now_utc() - time_at_last_ping;
-            let now_time = OffsetDateTime::now_utc().time();
-
-            // check if the current time is within 5 minutes of the posting window
-            let is_within_posting_window = (now_time - posting_time).whole_minutes() < 5;
-            if duration_since_last_ping.whole_hours() <= 24 && is_within_posting_window {
-                api.ping_with_daily(&mut question_queue).await?;
-                time_at_last_ping = OffsetDateTime::now_utc();
+                // check if the current time is within 5 minutes of the posting window
+                let is_within_posting_window = (now_time - posting_time).whole_minutes() < 5;
+                if duration_since_last_ping.whole_hours() <= 24 && is_within_posting_window {
+                    api.ping_with_daily(&mut question_queue).await?;
+                    time_at_last_ping = OffsetDateTime::now_utc();
+                }
             }
-
         }
-        thread::sleep(Duration::from_secs(1));
     }
 }
 
@@ -181,6 +162,5 @@ mod tests {
 
         assert!(is_within_posting_window);
     }
-
 }
 
