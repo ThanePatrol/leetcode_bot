@@ -31,9 +31,19 @@ services:
 Note that the database file will need to be downloaded from this repository separately.
 Per the docker-compose file above, the database will need to be in the same location
 as the docker compose file. 
+This can be done by running 
+```shell
+curl -o leetcode_questions.db https://raw.githubusercontent.com/ThanePatrol/leetcode_bot/main/resources/leetcode_questions.db`
+```
+in the same directory.
 
 Once you have populated the above file and have the database downloaded,
 simply run `docker-compose up -d`
+
+### Note for running on ARM
+The image on docker hub is built for x86. 
+You will need to clone the repo and run `docker build .` to build a 
+local copy. 
 
 ## Usage
 Currently, the supported commands are `push`, `pop` and `view`
