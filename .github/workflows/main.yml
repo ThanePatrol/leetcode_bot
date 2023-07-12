@@ -12,6 +12,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Set up Docker buildx
+        uses: docker/setup-buildx-action@v1
+
       - name: Login to Dockerhub
         uses: docker/login-action@v2
         with:
@@ -32,3 +35,4 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
