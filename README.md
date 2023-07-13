@@ -33,7 +33,7 @@ Per the docker-compose file above, the database will need to be in the same loca
 as the docker compose file. 
 This can be done by running 
 ```shell
-curl -o leetcode_questions.db https://raw.githubusercontent.com/ThanePatrol/leetcode_bot/main/resources/leetcode_questions.db`
+curl -o leetcode_questions.db https://raw.githubusercontent.com/ThanePatrol/leetcode_bot/main/resources/leetcode_questions.db
 ```
 in the same directory.
 
