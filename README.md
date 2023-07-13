@@ -40,10 +40,19 @@ in the same directory.
 Once you have populated the above file and have the database downloaded,
 simply run `docker-compose up -d`
 
-### Note for running on ARM
-The image on docker hub is built for x86. 
-You will need to clone the repo and run `docker build .` to build a 
-local copy. 
+### Server setup
+To add the bot to your server you will need to give the bot the following permissions:
+- Manage roles
+- Manage channels
+- Read messages/view channels
+- Send messages
+- Create public threads
+- Send messages in threads
+- Manage messages
+- Manage threads
+- Embed links
+- Read message history
+- Mention everyone
 
 ## Usage
 Currently, the supported commands are `push`, `pop` and `view`
