@@ -95,10 +95,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         match connection.recv_event() {
             Ok(Event::MessageCreate(message)) => {
-                if message.author.bot {
+                if message.author.bot || question_queue.have_seen_message_before(&message.id).await? {
                     continue;
                 }
                 let cmd = message.content;
+                question_queue.mark_message_as_seen(&message.id).await?;
 
                 match DiscordAPI::parse_command(&cmd) {
                     Err(e) => { api.send_error_message(Box::new(e)) }

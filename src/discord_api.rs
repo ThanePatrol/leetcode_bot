@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
 use discord::Discord;
-use discord::model::{ChannelId, Message};
+use discord::model::{ChannelId, Message, MessageId};
 use sqlx::{Pool, Sqlite};
 use crate::db_api;
 use crate::discord_api::CommandType::{AddQuestion, PostQuestion, ViewQuestions};
@@ -58,6 +58,18 @@ impl QuestionQueue {
 
     pub fn get_current_questions_in_queue(&self) -> Vec<Leetcode> {
         self.queue.iter().cloned().collect()
+    }
+
+    pub async fn have_seen_message_before(&self, message: &MessageId) -> Result<bool, sqlx::Error> {
+        let message = message.0.to_string();
+        let seen_before = db_api::is_message_in_database(message, self.pool.as_ref()).await?;
+        Ok(seen_before)
+    }
+
+    pub async fn mark_message_as_seen(&self, message: &MessageId) -> Result<(), sqlx::Error> {
+        let message = message.0.to_string();
+        db_api::mark_message_as_seen(message, self.pool.as_ref()).await?;
+        Ok(())
     }
 }
 
@@ -180,8 +192,9 @@ impl DiscordAPI {
     /// Assumes number is strictly numeric
     async fn add_question_as_number_to_queue(&self, number: &String, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
         let number = Self::split_problem_on_dots(number)
-            .unwrap_or("a")
-            .parse::<i32>()?;
+            .unwrap_or("-1")
+            .parse::<i32>()
+            .unwrap_or(-1);
         match question_queue.push_question_num_to_back(number).await {
             Ok(_) => {}
             Err(_) => {
