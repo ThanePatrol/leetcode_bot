@@ -1,4 +1,3 @@
-use std::arch::is_powerpc64_feature_detected;
 use rand::Rng;
 use sqlx::{Pool, Row, Sqlite};
 use sqlx::sqlite::SqlitePoolOptions;
