@@ -4,6 +4,7 @@ mod db_api;
 mod utils;
 mod discord_api;
 
+use std::error::Error;
 use std::ops::Sub;
 use std::rc::Rc;
 use std::time::{Duration};
@@ -76,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Error parsing time from .env");
 
 
-    let mut time_at_last_ping = OffsetDateTime::now_utc().sub(Duration::from_secs(86400));
+    let mut time_at_last_ping = OffsetDateTime::now_utc();
 
     let api = DiscordAPI::new(
         discord.clone(),
@@ -135,7 +136,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // check if the current time is within 5 minutes of the posting window
                 let is_within_posting_window = (now_time - posting_time).whole_minutes() < 5;
                 if duration_since_last_ping.whole_hours() <= 24 && is_within_posting_window {
-                    api.ping_with_daily(&mut question_queue).await?;
+                    let possible_fail = api.ping_with_daily(&mut question_queue).await;
+
+                    match possible_fail {
+                        Ok(_) => {},
+                        Err(e) => println!("failed to post error {:?} at {:?}", e, OffsetDateTime::now_utc())
+                    };
                     time_at_last_ping = OffsetDateTime::now_utc();
                 }
             }
