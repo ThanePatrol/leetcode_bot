@@ -134,7 +134,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let now_time = OffsetDateTime::now_utc().time();
 
                 // check if the current time is within 5 minutes of the posting window
-                let is_within_posting_window = (now_time - posting_time).whole_minutes() < 5;
+                let is_within_posting_window = (now_time - posting_time).whole_minutes().abs() < 5;
                 if duration_since_last_ping.whole_hours() >= 24 && is_within_posting_window {
                     let possible_fail = api.ping_with_daily(&mut question_queue).await;
 

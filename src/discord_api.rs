@@ -59,18 +59,6 @@ impl QuestionQueue {
     pub fn get_current_questions_in_queue(&self) -> Vec<Leetcode> {
         self.queue.iter().cloned().collect()
     }
-
-    pub async fn have_seen_message_before(&self, message: &MessageId) -> Result<bool, sqlx::Error> {
-        let message = message.0.to_string();
-        let seen_before = db_api::is_message_in_database(message, self.pool.as_ref()).await?;
-        Ok(seen_before)
-    }
-
-    pub async fn mark_message_as_seen(&self, message: &MessageId) -> Result<(), sqlx::Error> {
-        let message = message.0.to_string();
-        db_api::mark_message_as_seen(message, self.pool.as_ref()).await?;
-        Ok(())
-    }
 }
 
 /// Provides a thin wrapper around the Discord crate.
