@@ -9,7 +9,7 @@ use std::ops::Sub;
 use std::rc::Rc;
 use std::time::{Duration};
 use discord::{Discord};
-use discord::model::{Event};
+use discord::model::{ChannelId, Event};
 use time::macros::{format_description};
 use time::{OffsetDateTime, Time};
 use crate::discord_api::{CommandType, DiscordAPI, QuestionQueue};
@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Error parsing time from .env");
 
 
-    let mut time_at_last_ping = OffsetDateTime::now_utc();
+    let mut time_at_last_ping = OffsetDateTime::now_utc().sub(Duration::from_secs(86400));
 
     let api = DiscordAPI::new(
         discord.clone(),
@@ -96,11 +96,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         match connection.recv_event() {
             Ok(Event::MessageCreate(message)) => {
-                if message.author.bot || question_queue.have_seen_message_before(&message.id).await? {
+                //ignore bot messages or messages not in the command channel
+                if message.author.bot  || message.channel_id != ChannelId(command_channel) {
                     continue;
                 }
                 let cmd = message.content;
-                question_queue.mark_message_as_seen(&message.id).await?;
 
                 match DiscordAPI::parse_command(&cmd) {
                     Err(e) => { api.send_error_message(Box::new(e)) }
@@ -135,7 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 // check if the current time is within 5 minutes of the posting window
                 let is_within_posting_window = (now_time - posting_time).whole_minutes() < 5;
-                if duration_since_last_ping.whole_hours() <= 24 && is_within_posting_window {
+                if duration_since_last_ping.whole_hours() >= 24 && is_within_posting_window {
                     let possible_fail = api.ping_with_daily(&mut question_queue).await;
 
                     match possible_fail {

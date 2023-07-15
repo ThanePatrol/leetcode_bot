@@ -74,29 +74,6 @@ pub async fn mark_question_as_done(id: i32, pool: &Pool<Sqlite>) -> Result<(), s
     Ok(())
 }
 
-/// checks if message id exists in database - aka we have seen and processed this message before
-pub async fn is_message_in_database(message_id: String, pool: &Pool<Sqlite>) -> Result<bool, sqlx::Error> {
-    let row = sqlx::query(
-        "select * from messages where message_id = ?;"
-    )
-        .bind(message_id)
-        .fetch_one(pool)
-        .await?;
-    let is_in_db = !row.is_empty();
-    Ok(is_in_db)
-}
-
-pub async fn mark_message_as_seen(message_id: String, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
-    let _ = sqlx::query (
-        "INSERT INTO messages (message_id) VALUES (?)"
-    )
-        .bind(message_id)
-        .execute(pool)
-        .await?;
-    Ok(())
-}
-
-
 /// uses database id to mark question as not completed. Mainly used for testing.
 #[allow(dead_code)]
 pub async fn mark_question_as_not_completed(id: i32, pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
