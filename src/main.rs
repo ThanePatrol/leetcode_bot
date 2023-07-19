@@ -150,10 +150,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                     time_at_last_ping = OffsetDateTime::now_utc();
                 }
-
-                // a simple request to keep the connection alive
-                discord.get_messages()
-
             }
         }
     }
