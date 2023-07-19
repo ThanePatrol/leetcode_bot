@@ -128,6 +128,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
+            Err(discord::Error::Closed(code, body)) => {
+                println!("connection dropped with code: {:?} and {} \n reconnecting now...", code, body);
+                let (conn, _) = discord.connect()
+                    .expect("Connection failed when trying to reconnect");
+                connection = conn;
+            }
             _ => {
                 // check if it's the time of day to make a post
                 let duration_since_last_ping = OffsetDateTime::now_utc() - time_at_last_ping;
@@ -144,10 +150,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                     time_at_last_ping = OffsetDateTime::now_utc();
                 }
+
+                // a simple request to keep the connection alive
+                discord.get_messages()
+
             }
         }
     }
 }
+
 
 #[cfg(test)]
 mod tests {
