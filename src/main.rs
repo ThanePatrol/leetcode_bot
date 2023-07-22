@@ -134,6 +134,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let (conn, _) = discord.connect()
                     .expect("Connection failed when trying to reconnect");
                 connection = conn;
+
             }
             _ => {
                 // check if it's the time of day to make a post
