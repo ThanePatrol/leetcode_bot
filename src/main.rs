@@ -128,7 +128,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
-            Err(discord::Error::Closed(code, body)) => {
+            Err(e) => {
+                println!("error occurred at line 132 on main.rs with code: {:?}", e);
                 println!("connection dropped with code: {:?} and {} \n reconnecting now...", code, body);
                 let (conn, _) = discord.connect()
                     .expect("Connection failed when trying to reconnect");
