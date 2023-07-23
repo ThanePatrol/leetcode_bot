@@ -4,7 +4,6 @@ mod db_api;
 mod utils;
 mod discord_api;
 
-use std::error::Error;
 use std::ops::Sub;
 use std::rc::Rc;
 use std::time::{Duration};
@@ -130,7 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Err(e) => {
                 println!("error occurred at line 132 on main.rs with code: {:?}", e);
-                println!("connection dropped with code: {:?} and {} \n reconnecting now...", code, body);
+                println!("connection dropped with code: {:?} \n reconnecting now...", e);
                 let (conn, _) = discord.connect()
                     .expect("Connection failed when trying to reconnect");
                 connection = conn;
