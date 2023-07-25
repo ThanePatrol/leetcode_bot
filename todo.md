@@ -9,6 +9,8 @@
 - [x] Document usage
 - [x] Grind75 add and scrape
 - [x] Build and test docker file
-- [ ] Get docker-compose working
+- [x] Get docker-compose working
 - [x] GitHub actions push to dockerhub
 - [x] Add questions to queue based upon question number
+- [ ] Allow user to pause specific difficulties for a period
+- [ ] Allow to user to choose from specific topics
