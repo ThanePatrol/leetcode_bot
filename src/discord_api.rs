@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
 use discord::Discord;
-use discord::model::{ChannelId, Message, MessageId};
+use discord::model::{ChannelId, Message};
 use sqlx::{Pool, Sqlite};
 use crate::db_api;
 use crate::discord_api::CommandType::{AddQuestion, PostQuestion, ViewQuestions};

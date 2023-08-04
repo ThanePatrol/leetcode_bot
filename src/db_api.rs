@@ -2,6 +2,8 @@ use rand::Rng;
 use sqlx::{Pool, Row, Sqlite};
 use sqlx::sqlite::SqlitePoolOptions;
 use crate::leetcode::Leetcode;
+use async_recursion::async_recursion;
+use rand::SeedableRng;
 
 pub async fn init_db(db_url: &String) -> Result<Pool<Sqlite>, sqlx::Error> {
     let pool = SqlitePoolOptions::new()
@@ -48,6 +50,7 @@ pub async fn get_question_from_number(question_number: i32, pool: &Pool<Sqlite>)
 
 
 /// Retries a random question from the database that is not marked as completed
+#[async_recursion]
 pub async fn get_random_question_from_db(pool: &Pool<Sqlite>) -> Result<Leetcode, sqlx::Error> {
     let mut rows = sqlx::query(
         "select * from leetcode where have_done == false;"
@@ -55,11 +58,15 @@ pub async fn get_random_question_from_db(pool: &Pool<Sqlite>) -> Result<Leetcode
         .fetch_all(pool)
         .await?;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rngs::StdRng::seed_from_u64(42);
     let idx = rng.gen_range(0..rows.len());
     let row = rows.swap_remove(idx);
-    let random_question = Leetcode::new_from_row(row);
-
+    let mut random_question = Leetcode::new_from_row(row);
+    //premium questions are marked as 0
+    if random_question.number == 0 {
+        mark_question_as_done(random_question.db_id as i32, pool).await?;
+        random_question = get_random_question_from_db(pool).await?;
+    }
     Ok(random_question)
 }
 
