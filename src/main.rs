@@ -1,17 +1,17 @@
-pub mod scrapers;
-mod leetcode;
 mod db_api;
-mod utils;
 mod discord_api;
+mod leetcode;
+pub mod scrapers;
+mod utils;
 
+use crate::discord_api::{CommandType, DiscordAPI, QuestionQueue};
+use discord::model::{ChannelId, Event};
+use discord::Discord;
 use std::ops::Sub;
 use std::rc::Rc;
-use std::time::{Duration};
-use discord::{Discord};
-use discord::model::{ChannelId, Event};
-use time::macros::{format_description};
+use std::time::Duration;
+use time::macros::format_description;
 use time::{OffsetDateTime, Time};
-use crate::discord_api::{CommandType, DiscordAPI, QuestionQueue};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -25,14 +25,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db_url = std::env::var("DATABASE_URL").expect("Error reading db url from .env");
     let pool = Rc::new(db_api::init_db(&db_url).await?);
 
-
-    let discord = Discord::from_bot_token(&bot_token)
-        .expect("login failed");
+    let discord = Discord::from_bot_token(&bot_token).expect("login failed");
     let discord = Rc::new(discord);
 
-    let (mut connection, _) = discord.connect()
-        .expect("connection failed");
-
+    let (mut connection, _) = discord.connect().expect("connection failed");
 
     let command_channel = std::env::var("COMMAND_CHANNEL_ID")
         .expect("Error reading command channel from .env")
@@ -64,19 +60,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .parse::<u64>()
         .unwrap();
 
-    let announcement_text = std::env::var("ANNOUNCEMENT_TEXT")
-        .expect("Error reading announcement text from .env");
+    let announcement_text =
+        std::env::var("ANNOUNCEMENT_TEXT").expect("Error reading announcement text from .env");
 
-    let posting_time = std::env::var("TIME_TO_POST")
-        .expect("Error reading posting time from .env");
+    let posting_time = std::env::var("TIME_TO_POST").expect("Error reading posting time from .env");
 
     let format = format_description!("[hour]:[minute]:[second]");
     println!("{}", posting_time);
-    let posting_time = Time::parse(&*posting_time, &format)
-        .expect("Error parsing time from .env");
-
+    let posting_time = Time::parse(&*posting_time, &format).expect("Error parsing time from .env");
 
     let mut time_at_last_ping = OffsetDateTime::now_utc().sub(Duration::from_secs(86400));
+    let mut time_since_heartbeat = OffsetDateTime::now_utc().sub(Duration::from_secs(86400));
 
     let api = DiscordAPI::new(
         discord.clone(),
@@ -96,49 +90,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match connection.recv_event() {
             Ok(Event::MessageCreate(message)) => {
                 //ignore bot messages or messages not in the command channel
-                if message.author.bot  || message.channel_id != ChannelId(command_channel) {
+                if message.author.bot || message.channel_id != ChannelId(command_channel) {
                     continue;
                 }
                 let cmd = message.content;
 
                 match DiscordAPI::parse_command(&cmd) {
-                    Err(e) => { api.send_error_message(Box::new(e)) }
-                    Ok(action) => {
-                        match action {
-                            CommandType::AddQuestion => {
-                                match api.add_question_to_queue(&cmd, &mut question_queue).await {
-                                    Ok(_) => { api.send_confirmation_message("Question added to queue :)") }
-                                    Err(e) => { api.send_error_message(e) }
-                                };
-                            }
-                            CommandType::PostQuestion => {
-                                match api.ping_with_daily(&mut question_queue).await {
-                                    Ok(_) => { api.send_confirmation_message("Pinged people :)") }
-                                    Err(e) => { api.send_error_message(e) }
+                    Err(e) => api.send_error_message(Box::new(e)),
+                    Ok(action) => match action {
+                        CommandType::AddQuestion => {
+                            match api.add_question_to_queue(&cmd, &mut question_queue).await {
+                                Ok(_) => {
+                                    api.send_confirmation_message("Question added to queue :)")
                                 }
-                            }
-                            CommandType::ViewQuestions => {
-                                match api.get_all_questions_in_queue(&mut question_queue).await {
-                                    Ok(_) => {}
-                                    Err(e) => { api.send_error_message(e) }
-                                }
+                                Err(e) => api.send_error_message(e),
+                            };
+                        }
+                        CommandType::PostQuestion => {
+                            match api.ping_with_daily(&mut question_queue).await {
+                                Ok(_) => api.send_confirmation_message("Pinged people :)"),
+                                Err(e) => api.send_error_message(e),
                             }
                         }
-                    }
+                        CommandType::ViewQuestions => {
+                            match api.get_all_questions_in_queue(&mut question_queue).await {
+                                Ok(_) => {}
+                                Err(e) => api.send_error_message(e),
+                            }
+                        }
+                    },
                 }
             }
             Err(e) => {
                 println!("error occurred at line 132 on main.rs with code: {:?}", e);
-                println!("connection dropped with code: {:?} \n reconnecting now...", e);
-                let (conn, _) = discord.connect()
+                println!(
+                    "connection dropped with code: {:?} \n reconnecting now...",
+                    e
+                );
+                let (conn, _) = discord
+                    .connect()
                     .expect("Connection failed when trying to reconnect");
                 connection = conn;
-
             }
             _ => {
                 // check if it's the time of day to make a post
                 let duration_since_last_ping = OffsetDateTime::now_utc() - time_at_last_ping;
                 let now_time = OffsetDateTime::now_utc().time();
+
+                let is_within_heartbeat = (OffsetDateTime::now_utc() - time_since_heartbeat)
+                    .whole_minutes()
+                    .abs()
+                    < 5;
 
                 // check if the current time is within 5 minutes of the posting window
                 let is_within_posting_window = (now_time - posting_time).whole_minutes().abs() < 5;
@@ -146,16 +148,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let possible_fail = api.ping_with_daily(&mut question_queue).await;
 
                     match possible_fail {
-                        Ok(_) => {},
-                        Err(e) => println!("failed to post error {:?} at {:?}", e, OffsetDateTime::now_utc())
+                        Ok(_) => {}
+                        Err(e) => println!(
+                            "failed to post error {:?} at {:?}",
+                            e,
+                            OffsetDateTime::now_utc()
+                        ),
                     };
                     time_at_last_ping = OffsetDateTime::now_utc();
+                } else if is_within_heartbeat {
+                    //do a simple read to ensure the socket isn't close
+                    api.simulate_heartbeat();
+                    time_since_heartbeat = OffsetDateTime::now_utc();
                 }
             }
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -164,8 +173,7 @@ mod tests {
     #[test]
     fn duration_checks_are_accurate() {
         let posting_time = OffsetDateTime::now_utc().time();
-        let time_at_last_ping = OffsetDateTime::now_utc()
-            .sub(Duration::from_secs(86400));
+        let time_at_last_ping = OffsetDateTime::now_utc().sub(Duration::from_secs(86400));
 
         let duration_since_last_ping = OffsetDateTime::now_utc() - time_at_last_ping;
         assert!(duration_since_last_ping.whole_hours() <= 24);
@@ -178,4 +186,3 @@ mod tests {
         assert!(is_within_posting_window);
     }
 }
-

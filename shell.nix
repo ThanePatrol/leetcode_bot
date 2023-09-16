@@ -17,6 +17,8 @@ in
       libsodium
       zlib
       binutils
+      llvmPackages_rocm.lld
+      lld_9
     ];
 
 
