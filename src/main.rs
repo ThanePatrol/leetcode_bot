@@ -70,7 +70,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let posting_time = Time::parse(&*posting_time, &format).expect("Error parsing time from .env");
 
     let mut time_at_last_ping = OffsetDateTime::now_utc().sub(Duration::from_secs(86400));
-    let mut time_since_heartbeat = OffsetDateTime::now_utc().sub(Duration::from_secs(86400));
 
     let api = DiscordAPI::new(
         discord.clone(),
@@ -137,11 +136,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let duration_since_last_ping = OffsetDateTime::now_utc() - time_at_last_ping;
                 let now_time = OffsetDateTime::now_utc().time();
 
-                let is_within_heartbeat = (OffsetDateTime::now_utc() - time_since_heartbeat)
-                    .whole_minutes()
-                    .abs()
-                    < 5;
-
                 // check if the current time is within 5 minutes of the posting window
                 let is_within_posting_window = (now_time - posting_time).whole_minutes().abs() < 5;
                 if duration_since_last_ping.whole_hours() >= 24 && is_within_posting_window {
@@ -156,10 +150,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         ),
                     };
                     time_at_last_ping = OffsetDateTime::now_utc();
-                } else if is_within_heartbeat {
-                    //do a simple read to ensure the socket isn't close
-                    api.simulate_heartbeat();
-                    time_since_heartbeat = OffsetDateTime::now_utc();
                 }
             }
         }

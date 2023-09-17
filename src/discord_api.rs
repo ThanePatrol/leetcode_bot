@@ -1,13 +1,13 @@
-use crate::db_api;
-use crate::discord_api::CommandType::{AddQuestion, PostQuestion, ViewQuestions};
-use crate::leetcode::{Difficulty, Leetcode};
-use discord::model::{ChannelId, Message};
-use discord::Discord;
-use sqlx::{Pool, Sqlite};
 use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
+use discord::Discord;
+use discord::model::{ChannelId, Message};
+use sqlx::{Pool, Sqlite};
+use crate::db_api;
+use crate::discord_api::CommandType::{AddQuestion, PostQuestion, ViewQuestions};
+use crate::leetcode::{Difficulty, Leetcode};
 
 /// A queue like structure that can be appended to with discord commands
 /// the front of the queue will be the next question posted
@@ -55,6 +55,7 @@ impl QuestionQueue {
         Ok(())
     }
 
+
     pub fn get_current_questions_in_queue(&self) -> Vec<Leetcode> {
         self.queue.iter().cloned().collect()
     }
@@ -97,10 +98,7 @@ impl DiscordAPI {
         }
     }
 
-    pub async fn ping_with_daily(
-        &self,
-        question_queue: &mut QuestionQueue,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn ping_with_daily(&self, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
         let question = question_queue.get_next_question().await?;
 
         let thread_name = DiscordAPI::build_thread_name(&question);
@@ -108,18 +106,16 @@ impl DiscordAPI {
         let role_id = match question.difficulty {
             Difficulty::Easy => self.role_id_easy,
             Difficulty::Medium => self.role_id_med,
-            Difficulty::Hard => self.role_id_hard,
+            Difficulty::Hard => self.role_id_hard
         };
 
-        let msg = format!(
-            "<@&{}> {} {}",
-            role_id,
-            self.announcement_text,
-            question.url.clone()
-        );
-        let message =
-            self.client
-                .send_message(ChannelId(self.question_channel_id), &*msg, "", false)?;
+        let msg = format!("<@&{}> {} {}", role_id, self.announcement_text, question.url.clone());
+        let message = self.client.send_message(
+            ChannelId(self.question_channel_id),
+            &*msg,
+            "",
+            false,
+        )?;
 
         Self::create_new_thread_with_message(self, message, &thread_name).await?;
 
@@ -140,17 +136,14 @@ impl DiscordAPI {
         thread_name
     }
 
-    pub async fn get_all_questions_in_queue(
-        &self,
-        question_queue: &mut QuestionQueue,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn get_all_questions_in_queue(&self, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
         let questions = question_queue.get_current_questions_in_queue();
-        self.client.as_ref().send_message(
-            ChannelId(self.command_channel_id),
-            &*format!("The questions are: {:?}", questions),
-            "",
-            false,
-        )?;
+        self.client.as_ref()
+            .send_message(
+                ChannelId(self.command_channel_id),
+                &*format!("The questions are: {:?}", questions),
+                "",
+                false)?;
         Ok(())
     }
 
@@ -158,53 +151,34 @@ impl DiscordAPI {
     /// Assumes question is in format push..`url` OR push..`num`
     /// where `url` is in the format https://leetcode.com/problems/two-sum/description/
     /// and where `num` is the number of the question, eg 1 for Two Sum
-    pub async fn add_question_to_queue(
-        &self,
-        user_input: &String,
-        question_queue: &mut QuestionQueue,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn add_question_to_queue(&self, user_input: &String, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
         if Self::is_numeric(user_input.as_ref()) {
-            self.add_question_as_number_to_queue(user_input, question_queue)
-                .await?
+            self.add_question_as_number_to_queue(user_input, question_queue).await?
         } else {
-            self.add_question_as_url_to_queue(user_input, question_queue)
-                .await?
+            self.add_question_as_url_to_queue(user_input, question_queue).await?
         }
         Ok(())
     }
 
-    async fn add_question_as_url_to_queue(
-        &self,
-        url: &String,
-        question_queue: &mut QuestionQueue,
-    ) -> Result<(), Box<dyn Error>> {
+    async fn add_question_as_url_to_queue(&self, url: &String, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
         if let Some(url) = Self::split_problem_on_dots(url.as_ref()) {
             match question_queue.push_url_to_back(&url.to_string()).await {
                 Ok(_) => {}
                 Err(_) => {
-                    return Err(Box::new(UserError(
-                        "Unrecognised problem, make sure problem url is \
+                    return Err(Box::new(UserError("Unrecognised problem, make sure problem url is \
                     in the format https://leetcode.com/problems/two-sum/ \
                     and the problem is in the database. \n Note that the url \
-                    does not have /description after it"
-                            .to_string(),
-                    )));
+                    does not have /description after it".to_string())));
                 }
             }
         } else {
-            return Err(Box::new(UserError(
-                "Ensure command is in format: push..`url`".to_string(),
-            )));
+            return Err(Box::new(UserError("Ensure command is in format: push..`url`".to_string())));
         }
         Ok(())
     }
 
     /// Assumes number is strictly numeric
-    async fn add_question_as_number_to_queue(
-        &self,
-        number: &String,
-        question_queue: &mut QuestionQueue,
-    ) -> Result<(), Box<dyn Error>> {
+    async fn add_question_as_number_to_queue(&self, number: &String, question_queue: &mut QuestionQueue) -> Result<(), Box<dyn Error>> {
         let number = Self::split_problem_on_dots(number)
             .unwrap_or("-1")
             .parse::<i32>()
@@ -212,11 +186,8 @@ impl DiscordAPI {
         match question_queue.push_question_num_to_back(number).await {
             Ok(_) => {}
             Err(_) => {
-                return Err(Box::new(UserError(
-                    "Unrecognised problem, make sure problem number is \
-                    correct and the problem is in the database"
-                        .to_string(),
-                )));
+                return Err(Box::new(UserError("Unrecognised problem, make sure problem number is \
+                    correct and the problem is in the database".to_string())));
             }
         }
 
@@ -228,14 +199,16 @@ impl DiscordAPI {
         &self,
         message: Message,
         thread_name: &String,
-    ) -> Result<(), Box<dyn Error>> {
-        let _ = self.client.as_ref().create_thread(
-            ChannelId(self.question_channel_id),
-            message.id,
-            |ch| ch.name(thread_name.as_str()),
-        )?;
+    )
+        -> Result<(), Box<dyn Error>> {
+        let _ = self.client.as_ref()
+            .create_thread(
+                ChannelId(self.question_channel_id),
+                message.id,
+                |ch| ch.name(thread_name.as_str()))?;
         Ok(())
     }
+
 
     /// Trims and splits a users discord command
     fn split_problem_on_dots(user_input: &str) -> Option<&str> {
@@ -249,8 +222,7 @@ impl DiscordAPI {
     /// returning false here will force the url handler to deal with incorrect errors
     /// rather than duplicating work
     fn is_numeric(input: &str) -> bool {
-        input
-            .trim()
+        input.trim()
             .split("..")
             .last()
             .unwrap_or("a")
@@ -269,36 +241,29 @@ impl DiscordAPI {
                 "push" => Ok(AddQuestion),
                 "pop" => Ok(PostQuestion),
                 "view" => Ok(ViewQuestions),
-                _ => Err(UserError(
-                    "Ensure command is in format: action..".to_string(),
-                )),
+                _ => Err(UserError("Ensure command is in format: action..".to_string())),
             }
         } else {
-            Err(UserError(
-                "Ensure command is in format: action..".to_string(),
-            ))
+            Err(UserError("Ensure command is in format: action..".to_string()))
         }
     }
 
     pub fn send_error_message(&self, error: Box<dyn Error>) {
-        self.client
-            .send_message(
-                ChannelId(self.command_channel_id),
-                &*error.to_string(),
-                "",
-                false,
-            )
-            .expect("Couldn't send error message...");
+        self.client.send_message(
+            ChannelId(self.command_channel_id),
+            &*error.to_string(),
+            "",
+            false,
+        ).expect("Couldn't send error message...");
     }
 
     pub fn send_confirmation_message(&self, text: &str) {
-        self.client
-            .send_message(ChannelId(self.command_channel_id), text, "", false)
-            .expect("Couldn't send confirmation message");
-    }
-
-    pub fn simulate_heartbeat(&self) {
-        let _ = self.client.get_channel(ChannelId(self.command_channel_id));
+        self.client.send_message(
+            ChannelId(self.command_channel_id),
+            text,
+            "",
+            false,
+        ).expect("Couldn't send confirmation message");
     }
 }
 
@@ -310,6 +275,7 @@ pub enum CommandType {
 
 #[derive(Debug)]
 pub struct UserError(String);
+
 
 impl fmt::Display for UserError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -340,13 +306,10 @@ mod tests {
         let question = queue.get_next_question().await.unwrap();
         assert_eq!(question.name, "Two Sum".to_string());
 
-        let question = db_api::get_question_from_url(&two_sum, pool.as_ref())
-            .await
-            .unwrap();
+        let question = db_api::get_question_from_url(&two_sum, pool.as_ref()).await.unwrap();
         assert_eq!(question.have_solved, true);
 
-        db_api::mark_question_as_not_completed(question.db_id as i32, pool.as_ref())
-            .await
-            .unwrap();
+        db_api::mark_question_as_not_completed(question.db_id as i32, pool.as_ref()).await.unwrap();
     }
 }
+

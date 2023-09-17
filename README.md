@@ -27,7 +27,26 @@ services:
     volumes:
       - './leetcode_questions.db:/usr/app/resources/leetcode_questions.db'
     image: 'thanepatrol/leetcode_bot:main'
+  restarter:
+    image: docker:cli
+    restart: unless-stopped
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      -  |
+      while true; do
+        if [ "$(date + '%H:%M')" = '09:00']; then
+          docker restart leetcode_bot
+        fi
+        sleep 60
+      done
 ```
+The restarter service is used to restart the container once a day.
+The websocket that is opened by the docker engine generally closes in 18-28 hours. 
+It cannot be reopened by the application itself, even if `restart: always` is set
+Note the time is set to 1 hour before the bot is due to post. 
+Feel free to modify this but keeping it before the bots posting time is recommended.
+
 Note that the database file will need to be downloaded from this repository separately.
 Per the docker-compose file above, the database will need to be in the same location
 as the docker compose file. 
